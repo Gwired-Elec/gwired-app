@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import MaterialPicker from '../../components/MaterialPicker'
-import PriceAge from '../../components/PriceAge'
 import { useAuth } from '../../lib/auth'
 import {
   useAllPrices, useAssemblies, useEstSettings, useLabourRates, useMaterials, usePointRates, usePrelims, useSuppliers,
@@ -434,7 +433,7 @@ function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCos
         {seeCost && <span className="muted"> · cost {formatGBP(lineCost(l))}</span>}
         {hours > 0 && <span className="muted"> · {hours} h labour</span>}
         {l.sell_override != null && <> · <span className="tag">price set by hand</span> {editable && <button className="link small" onClick={() => onSell('')}>Use suggested {formatGBP(Math.round(suggestedSell(l, uplift)))}</button>}</>}
-        {l.kind === 'material' && <> · <PriceAge date={l.price_date} staleDays={staleDays} />{l.price_source ? <span className="muted"> ({l.price_source})</span> : null}</>}
+        {l.kind === 'material' && <> · <span className={isStale(l.price_date, staleDays) ? 'age stale' : 'muted'}>{isStale(l.price_date, staleDays) ? '⚠ ' : ''}Last used {l.price_date ? l.price_date.split('-').reverse().join('/') : '(no date)'}</span></>}
       </p>
     </div>
   )
