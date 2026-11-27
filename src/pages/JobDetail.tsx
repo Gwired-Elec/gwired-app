@@ -9,13 +9,13 @@ import { DiaryPanel } from './planner/Diary'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../lib/auth'
-import { fmtDate, fmtDateTime, JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow, type Job } from '../lib/jobs'
+import { fmtDate, JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow, type Job } from '../lib/jobs'
 import { formatGBP, parsePounds, toInputPounds } from '../lib/money'
 import { db, type Row } from '../lib/sync/db'
 import { diff, logActivity, save } from '../lib/sync/store'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
-const TABS = ['Overview', 'Walkaround', 'Estimate', 'Variations', 'Applications', 'Costs', 'To-dos', 'Diary', 'Files', 'Activity'] as const
+const TABS = ['Overview', 'Walkaround', 'Estimate', 'Variations', 'Applications', 'Costs', 'To-dos', 'Diary', 'Files'] as const
 const PHASE: Record<string, string> = { Costs: 'a later phase' }
 
 export default function JobDetail() {
@@ -59,7 +59,6 @@ export default function JobDetail() {
       </div>
 
       {tab === 'Overview' && <Overview job={job} fin={fin} editable={editable} user={user} />}
-      {tab === 'Activity' && <Activity jobId={job.id} />}
       {tab === 'Estimate' && <div className="est"><EstimateTab job={job} user={user} /></div>}
       {tab === 'Walkaround' && <WalkaroundTab job={job} />}
       {tab === 'Variations' && <div className="est"><VariationsTab job={job} /></div>}
@@ -67,7 +66,7 @@ export default function JobDetail() {
       {tab === 'Files' && <FilesTab job={job} />}
       {tab === 'To-dos' && (can('todos') ? <TodoPanel jobId={job.id} /> : <div className="card"><p className="muted">You do not have access to to-dos.</p></div>)}
       {tab === 'Diary' && (can('diary') ? <DiaryPanel jobId={job.id} /> : <div className="card"><p className="muted">You do not have access to the diary.</p></div>)}
-      {!['Overview', 'Activity', 'Estimate', 'Walkaround', 'Variations', 'Applications', 'To-dos', 'Diary', 'Files'].includes(tab) && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
+      {!['Overview', 'Estimate', 'Walkaround', 'Variations', 'Applications', 'To-dos', 'Diary', 'Files'].includes(tab) && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
       {dialog}
     </>
   )
@@ -161,26 +160,3 @@ const toMoney = (r: Row | undefined) => ({
   valid: (r?.valid_until as string) ?? '',
   prob: r?.probability == null ? '' : String(r.probability),
 })
-
-const ACTION: Record<string, (d: Record<string, unknown>) => string> = {
-  created: () => 'created the job',
-  status: (d) => `changed status ${String(d.from).replace(/_/g, ' ')} → ${String(d.to).replace(/_/g, ' ')}${d.lost_reason ? ` (${d.lost_reason})` : ''}`,
-  edited: (d) => `edited ${((d.fields as string[]) ?? []).join(', ').replace(/_/g, ' ')}`,
-  estimate: (d) => (d.from ? `made estimate revision ${d.rev} from ${d.from}` : `started estimate ${d.rev}`),
-  quote: (d) => `updated the quote (${((d.fields as string[]) ?? []).join(', ').replace(/_/g, ' ')})`,
-}
-function Activity({ jobId }: { jobId: string }) {
-  const rows = useLiveQuery(() => db().activity_log.where('entity_id').equals(jobId).toArray(), [jobId])
-  const sorted = [...(rows ?? [])].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
-  return (
-    <div className="card">
-      {!sorted.length && <p className="muted">Nothing yet.</p>}
-      {sorted.map((r) => (
-        <p key={r.id} style={{ margin: '0 0 10px' }}>
-          <strong>{String(r.user_name ?? 'Someone')}</strong> {(ACTION[String(r.action)] ?? (() => String(r.action)))((r.detail as Record<string, unknown>) ?? {})}
-          <br /><span className="muted small">{fmtDateTime(String(r.created_at))}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
