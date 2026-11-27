@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import EstimateTab from './estimating/EstimateTab'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../lib/auth'
@@ -9,7 +10,7 @@ import { diff, logActivity, save } from '../lib/sync/store'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
 const TABS = ['Overview', 'SoW', 'Estimate', 'Variations', 'Applications', 'Costs', 'To-dos', 'Diary', 'Files', 'Activity'] as const
-const PHASE: Record<string, string> = { SoW: 'Phase 3', Estimate: 'Phase 2', Variations: 'Phase 5', Applications: 'Phase 5', Costs: 'Phase 8', 'To-dos': 'Phase 8', Diary: 'Phase 8', Files: 'a later phase' }
+const PHASE: Record<string, string> = { SoW: 'Phase 3', Variations: 'Phase 5', Applications: 'Phase 5', Costs: 'Phase 8', 'To-dos': 'Phase 8', Diary: 'Phase 8', Files: 'a later phase' }
 
 export default function JobDetail() {
   const { id = '' } = useParams()
@@ -49,7 +50,8 @@ export default function JobDetail() {
 
       {tab === 'Overview' && <Overview job={job} fin={fin} editable={editable} user={user} />}
       {tab === 'Activity' && <Activity jobId={job.id} />}
-      {tab !== 'Overview' && tab !== 'Activity' && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
+      {tab === 'Estimate' && <EstimateTab job={job} user={user} />}
+      {tab !== 'Overview' && tab !== 'Activity' && tab !== 'Estimate' && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
       {dialog}
     </>
   )
@@ -148,6 +150,7 @@ const ACTION: Record<string, (d: Record<string, unknown>) => string> = {
   created: () => 'created the job',
   status: (d) => `changed status ${String(d.from).replace(/_/g, ' ')} → ${String(d.to).replace(/_/g, ' ')}${d.lost_reason ? ` (${d.lost_reason})` : ''}`,
   edited: (d) => `edited ${((d.fields as string[]) ?? []).join(', ').replace(/_/g, ' ')}`,
+  estimate: (d) => (d.from ? `made estimate revision ${d.rev} from ${d.from}` : `started estimate ${d.rev}`),
   quote: (d) => `updated the quote (${((d.fields as string[]) ?? []).join(', ').replace(/_/g, ' ')})`,
 }
 function Activity({ jobId }: { jobId: string }) {

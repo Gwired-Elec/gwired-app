@@ -149,3 +149,11 @@ table.mini tr.hdr td { background: var(--grey-1); font-weight: 700; }
 .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 .chip.on { background: var(--c); color: #fff; }
 .chip.on .dot { background: #fff; }
+
+/* estimate builder */
+.lcard { border-top: 1px solid var(--grey-2); padding: 12px 0; }
+.lgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+.lgrid .f label { font-size: .8rem; }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.check input { width: auto; }
+table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2); }
