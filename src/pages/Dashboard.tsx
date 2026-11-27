@@ -36,7 +36,11 @@ export default function Dashboard() {
         <Tile label="Owed to you" value={formatGBP(d.money.outstanding)} sub="issued, not yet paid (inc. VAT)" />
         <Tile label="Late" value={formatGBP(d.money.overdue)} sub="past its payment date (inc. VAT)" colour={d.money.overdue ? '#b91c1c' : undefined} />
       </div>
-      <p className="muted small">Money out (costs, wages, suppliers) is not tracked in the app yet, so there is no profit figure here.</p>
+      <h2>Money out</h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <Tile label="Costs so far" value={formatGBP(d.money.costsToDate)} sub="labour from the diary, materials and other, from each job's Costs tab" />
+        <Tile label="Expected profit on live jobs" value={formatGBP(d.live.expectedProfit)} sub={`${d.live.withCosts} of ${d.live.jobs} live job${d.live.jobs === 1 ? '' : 's'} have costs recorded`} colour={d.live.expectedProfit < 0 ? '#b91c1c' : '#15803d'} />
+      </div>
 
       <div className="card">
         <h2>Who owes what, by how late</h2>
@@ -81,10 +85,10 @@ export default function Dashboard() {
           <Link key={r.job.id} to={`/jobs/${r.job.id}`} className="linklike" style={{ display: 'block', textDecoration: 'none', width: '100%', borderTop: '1px solid var(--grey-2, #e4e4e7)', padding: '8px 0' }}>
             <span><span aria-hidden style={{ color: RAG[r.rag].colour }}>●</span> <strong>{RAG[r.rag].word}</strong> · {`${r.job.job_number ?? ''} ${r.job.title}`.trim()}</span><br />
             <span className="muted small">{r.why}</span><br />
-            <span className="muted small">Contract {formatGBP(r.contract)} · billed {formatGBP(r.billed)} · owed {formatGBP(r.owed)} · to bill {formatGBP(r.toBill)}</span>
+            <span className="muted small">Contract {formatGBP(r.contract)} · billed {formatGBP(r.billed)} · owed {formatGBP(r.owed)} · to bill {formatGBP(r.toBill)}</span>{r.profit != null && <><br /><span className="muted small">Cost so far {formatGBP(r.cost)} · expected cost {formatGBP(r.forecast)} · expected profit <strong style={{ color: r.profit < 0 ? '#b91c1c' : undefined }}>{formatGBP(r.profit)}{r.margin != null ? ` (${r.margin}%)` : ''}</strong></span></>}
           </Link>
         ))}
-        <p className="muted small">Red: a payment is more than 30 days late. Amber: a payment is late, the job has been billed more than its contract value, or there is no contract value. Green: nothing late.</p>
+        <p className="muted small">Red: a payment is more than 30 days late, or the job is expected to cost more than the contract. Amber: a payment is late, the job has been billed more than its contract value, there is no contract value, or the expected margin is under 10%. Green: nothing wrong.</p>
       </div>
     </>
   )

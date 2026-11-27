@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Row } from '../sync/db'
 import { acceptedValue, contractEstimate, variationValues, type Application, type ApplicationLine, type Invoice, type Variation, type VariationLine } from '../commercial/data'
 import { estimateTotals } from '../estimating/estimate'
+import { labourRows, summarise, type CCost, type CEvent } from '../costs/calc'
 import { fixEst, fixLine, type Estimate, type Line } from '../estimating/estimates'
 import { todayIso } from '../planner/data'
 import { dashboard, type Dashboard } from './metrics'
@@ -21,6 +22,9 @@ export function useDashboard(): Dashboard | undefined {
     const apps = (await db().applications.filter(alive).toArray()) as unknown as Application[]
     const alines = (await db().application_lines.filter(alive).toArray()) as unknown as ApplicationLine[]
     const invs = (await db().invoices.filter(alive).toArray()) as unknown as Invoice[]
+    const costRows = ((await db().job_costs.filter(alive).toArray()) as unknown as CCost[]).map((c) => ({ ...c, days: c.days == null ? null : n(c.days), rate_pence: c.rate_pence == null ? null : n(c.rate_pence), amount_pence: n(c.amount_pence) }))
+    const calEvents = (await db().calendar_events.filter(alive).toArray()) as unknown as (CEvent & { job_id: string | null })[]
+    const grades = (await db().labour_rates.filter(alive).toArray())
 
     // each job's quote: the accepted estimate (else the latest), leaving out the estimates that price variations
     const quoteNet: Record<string, number> = {}
@@ -32,8 +36,20 @@ export function useDashboard(): Dashboard | undefined {
     const variationsAccepted: Record<string, number> = {}
     for (const v of variations.filter((x) => x.status === 'approved')) variationsAccepted[v.job_id] = (variationsAccepted[v.job_id] ?? 0) + acceptedValue(v, values.get(v.id) ?? 0)
 
+    // money out, per job: spent so far and expected total (labour from the diary unless overruled, plus materials and other costs)
+    const today = todayIso()
+    const costs: Record<string, { actual: number; forecast: number }> = {}
+    for (const jobId of new Set([...costRows.map((c) => c.job_id), ...calEvents.map((e) => e.job_id).filter(Boolean) as string[]])) {
+      const e = contractEstimate(every.filter((x) => x.job_id === jobId && !x.variation_id).sort((a, b) => a.rev - b.rev))
+      const g = grades.find((x) => x.id === e?.labour_rate_id) ?? grades.find((x) => x.active !== false) ?? grades[0]
+      const rows = labourRows(calEvents.filter((x) => x.job_id === jobId), costRows.filter((c) => c.job_id === jobId), n(g?.day_cost_pence), today)
+      const s = summarise(rows, costRows.filter((c) => c.job_id === jobId))
+      costs[jobId] = { actual: s.actual, forecast: s.forecast }
+    }
+
     return dashboard({
-      today: todayIso(),
+      today,
+      costs,
       jobs: jobs.map((j) => ({ id: j.id, job_number: (j.job_number as string | null) ?? null, title: String(j.title ?? ''), status: String(j.status), chase_date: (j.chase_date as string | null) ?? null })),
       fin: fin.map((f) => ({ job_id: f.id, quote_value_pence: f.quote_value_pence == null ? null : n(f.quote_value_pence), probability: f.probability == null ? null : n(f.probability), valid_until: (f.valid_until as string | null) ?? null })),
       quoteNet, variationsAccepted,

@@ -65,6 +65,17 @@ describe('dashboard', () => {
     expect(d.money.outstanding).toBe(10_000_00)
   })
 
+  it('profit: judged from the costs once they are recorded', () => {
+    const d = dashboard({ ...base, jobs: [job('j1', 'live'), job('j2', 'live'), job('j3', 'live')], quoteNet: { j1: 10_000_00, j2: 10_000_00, j3: 10_000_00 }, costs: { j1: { actual: 3_000_00, forecast: 7_000_00 }, j2: { actual: 5_000_00, forecast: 11_000_00 }, j3: { actual: 1_000_00, forecast: 9_500_00 } } })
+    const by = (id: string) => d.jobs.find((r) => r.job.id === id)!
+    expect(by('j1')).toMatchObject({ profit: 3_000_00, margin: 30, rag: 'green' })
+    expect(by('j2')).toMatchObject({ profit: -1_000_00, rag: 'red' })
+    expect(by('j3')).toMatchObject({ profit: 500_00, margin: 5, rag: 'amber' })
+    expect(d.money.costsToDate).toBe(9_000_00)
+    expect(d.live.expectedProfit).toBe(2_500_00)
+    expect(d.live.withCosts).toBe(3)
+  })
+
   it('a live job with no contract value is flagged', () => {
     const d = dashboard({ ...base, jobs: [job('j1', 'live')] })
     expect(d.jobs[0].rag).toBe('amber')

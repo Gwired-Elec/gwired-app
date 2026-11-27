@@ -15,6 +15,7 @@ export interface DInput {
   variationsAccepted: Record<string, number> // approved variations at the accepted value
   apps: DApp[]
   invs: DInv[]
+  costs?: Record<string, { actual: number; forecast: number }> // per job: spent so far, and expected total cost (from the Costs tab)
   appPaymentDays?: number // days an application is allowed before it counts as late (30 unless told otherwise)
 }
 
@@ -24,11 +25,11 @@ const addDays = (s: string, n: number) => new Date((day(s) + n) * 86_400_000).to
 
 export type Rag = 'red' | 'amber' | 'green'
 export interface Owed { job_id: string; label: string; amount: number; date: string; due: string; overdueDays: number }
-export interface JobRow { job: DJob; contract: number; billed: number; paid: number; owed: number; toBill: number; rag: Rag; why: string }
+export interface JobRow { job: DJob; contract: number; billed: number; paid: number; owed: number; toBill: number; cost: number; forecast: number; profit: number | null; margin: number | null; rag: Rag; why: string }
 export interface Dashboard {
   pipeline: { open: number; value: number; weighted: number; unweightedCount: number; byStatus: { status: string; count: number; value: number }[]; chaseOverdue: number }
-  live: { jobs: number; contract: number; billed: number; toBill: number }
-  money: { invoiced: number; paid: number; outstanding: number; overdue: number }
+  live: { jobs: number; contract: number; billed: number; toBill: number; expectedProfit: number; withCosts: number }
+  money: { invoiced: number; paid: number; outstanding: number; overdue: number; costsToDate: number }
   ageing: { notDue: number; d1_30: number; d31_60: number; d61plus: number }
   owed: Owed[]
   jobs: JobRow[]
@@ -107,13 +108,20 @@ export function dashboard(i: DInput): Dashboard {
     else if (worst > 0) { rag = 'amber'; why = `Payment ${worst} day${worst === 1 ? '' : 's'} late` }
     else if (contract > 0 && s.billed > contract) { rag = 'amber'; why = 'Billed more than the contract value' }
     else if (contract === 0) { rag = 'amber'; why = 'No contract value found (is the quote accepted?)' }
-    return { job, contract, billed: s.billed, paid: s.paid, owed: s.owed, toBill: Math.max(0, contract - s.billed), rag, why }
+    // money out: only judged once costs have been recorded on the job
+    const c = i.costs?.[job.id]
+    const hasCosts = !!c && (c.actual > 0 || c.forecast > 0)
+    const profit = hasCosts && contract > 0 ? contract - c!.forecast : null
+    const margin = profit != null && contract > 0 ? Math.round((profit / contract) * 1000) / 10 : null
+    if (profit != null && profit < 0) { rag = 'red'; why = 'Expected to cost more than the contract' + (worst > 0 ? `. Also: payment ${worst} days late` : '') }
+    else if (margin != null && margin < 10 && rag === 'green') { rag = 'amber'; why = `Expected margin is only ${margin}%` }
+    return { job, contract, billed: s.billed, paid: s.paid, owed: s.owed, toBill: Math.max(0, contract - s.billed), cost: c?.actual ?? 0, forecast: c?.forecast ?? 0, profit, margin, rag, why }
   }).sort((a, b) => ['red', 'amber', 'green'].indexOf(a.rag) - ['red', 'amber', 'green'].indexOf(b.rag))
 
   return {
     pipeline: { open: quoted.length, value, weighted, unweightedCount, byStatus, chaseOverdue },
-    live: { jobs: jobs.length, contract: jobs.reduce((a, r) => a + r.contract, 0), billed: jobs.reduce((a, r) => a + r.billed, 0), toBill: jobs.reduce((a, r) => a + r.toBill, 0) },
-    money: { invoiced, paid, outstanding, overdue },
+    live: { jobs: jobs.length, contract: jobs.reduce((a, r) => a + r.contract, 0), billed: jobs.reduce((a, r) => a + r.billed, 0), toBill: jobs.reduce((a, r) => a + r.toBill, 0), expectedProfit: jobs.reduce((a, r) => a + (r.profit ?? 0), 0), withCosts: jobs.filter((r) => r.profit != null).length },
+    money: { invoiced, paid, outstanding, overdue, costsToDate: Object.values(i.costs ?? {}).reduce((a, c) => a + c.actual, 0) },
     ageing, owed, jobs,
   }
 }
