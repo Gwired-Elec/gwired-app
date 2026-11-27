@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { addDaysIso, buildIcs, dayLabel, eventDays, isoDate, mondayOf, parseIso, timeText, todayIso, useEvents, useReminders, useTodos, type CalEvent } from '../../lib/planner/data'
 import { newId, remove, save } from '../../lib/sync/store'
+import CalendarLink from './CalendarLink'
 import { JobSelect, PersonSelect, useLabels } from './shared'
 
 export default function DiaryPage() {
@@ -122,6 +123,7 @@ export function DiaryPanel({ jobId }: { jobId?: string }) {
       </div>
       {form && <EventForm key={form.id ?? 'new' + form.date} ev={evs.find((e) => e.id === form.id)} date={form.date} labels={labels} me={me} onClose={() => setForm(null)} />}
 
+      <CalendarLink />
       {view === 'week' && week.map((d) => <DayBlock key={d} d={d} />)}
       {view === 'month' && (
         <>

@@ -24,4 +24,5 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 019_variation_estimates.sql | price variations like an estimate (materials, points, day rates) | run |
 | 020_variation_photos.sql | photos on variation items | not yet |
 | 021_todos_diary.sql | to-dos, diary events, team list (Phase 8) | not yet |
+| 022_calendar_feed.sql | private calendar link for Apple Calendar (also deploy the diary-feed function) | not yet |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | not yet |

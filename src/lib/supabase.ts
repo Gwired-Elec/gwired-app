@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 const tidy = (v: unknown) => (typeof v === 'string' ? v.replace(/[​-‍﻿]/g, '').trim() : undefined)
 const url = tidy(import.meta.env.VITE_SUPABASE_URL)
 const anonKey = tidy(import.meta.env.VITE_SUPABASE_ANON_KEY)
+export const supabaseUrl = url?.replace(/\/+$/, '')
 
 // Shown on screen instead of a blank page if .env.local hasn't been filled in.
 export const configError =
