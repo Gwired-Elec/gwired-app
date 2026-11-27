@@ -262,7 +262,7 @@ function Camera({ onShot, onClose, onLibrary, kept }: { onShot: (b: Blob) => voi
 }
 
 // The "Add photo" button for an item: opens the camera, shows each photo for a tick or the pen, and hands the kept ones back.
-export function PhotoCapture({ busy, onKeep }: { busy?: boolean; onKeep: (b: Blob, original?: Blob) => Promise<void> | void }) {
+export function PhotoCapture({ busy, onKeep, canOpen }: { busy?: boolean; onKeep: (b: Blob, original?: Blob) => Promise<void> | void; canOpen?: () => boolean }) {
   const [open, setOpen] = useState(false)
   const [review, setReview] = useState<(File | Blob)[]>([])
   const [kept, setKept] = useState(0)
@@ -270,7 +270,7 @@ export function PhotoCapture({ busy, onKeep }: { busy?: boolean; onKeep: (b: Blo
   const live = !!navigator.mediaDevices?.getUserMedia
   return (
     <>
-      <button type="button" className="iconbtn" disabled={busy} style={{ opacity: busy ? 0.6 : 1 }} onClick={() => (live ? (setKept(0), setOpen(true)) : pick.current?.click())}>
+      <button type="button" className="iconbtn" disabled={busy} style={{ opacity: busy ? 0.6 : 1 }} onClick={() => { if (canOpen && !canOpen()) return; if (live) { setKept(0); setOpen(true) } else pick.current?.click() }}>
         {busy ? 'Adding…' : '📷 Add photo'}
       </button>
       <input ref={pick} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) setReview(fs) }} />

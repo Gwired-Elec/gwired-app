@@ -4,7 +4,7 @@ import type { Job } from '../../lib/jobs'
 import { useClients } from '../../lib/jobs'
 import { getPhotoBlob, shrinkImage } from '../../lib/walkaround/photoStore'
 import { buildSowPdf, buildSowXlsx, type SowInput, type SowPhoto } from '../../lib/walkaround/sow'
-import type { Area, Element, Photo } from './WalkaroundTab'
+import { commitAllDrafts, loadWalkaround, type Photo } from '../../lib/walkaround/data'
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -21,7 +21,7 @@ async function deliver(file: File) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-export default function SowExport({ job, areas, elements, photos }: { job: Job; areas: Area[]; elements: Element[]; photos: Photo[] }) {
+export default function SowExport({ job }: { job: Job }) {
   const clients = useClients()
   const [showRates, setShowRates] = useState(true)
   const [withPhotos, setWithPhotos] = useState(true)
@@ -34,6 +34,9 @@ export default function SowExport({ job, areas, elements, photos }: { job: Job; 
     setErr('')
     setSkipped(0)
     try {
+      // anything typed into an "Add an item" form but not yet added is saved first, then the walkaround is read fresh
+      await commitAllDrafts()
+      const { areas, elements, photos } = await loadWalkaround(job.id)
       const company = navigator.onLine ? await loadCompany() : cachedCompany()
       let logo: Uint8Array | null = null
       try {

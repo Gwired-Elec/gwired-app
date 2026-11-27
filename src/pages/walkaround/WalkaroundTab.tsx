@@ -1,38 +1,33 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../../lib/auth'
 import type { Job } from '../../lib/jobs'
-import { db, type Row } from '../../lib/sync/db'
-import { newId, remove, save } from '../../lib/sync/store'
+import { db } from '../../lib/sync/db'
+import { commitAllDrafts, loadWalkaround, registerDraft, unregisterDraft, type Area, type Element, type Photo } from '../../lib/walkaround/data'
+import { diff, newId, remove, save } from '../../lib/sync/store'
 import { keepLocal, keepOriginal, photoWaiting, uploadPendingPhotos, usePhotoUrl } from '../../lib/walkaround/photoStore'
 import { PhotoCapture, PhotoViewer } from './PhotoEditor'
 import SowExport from './SowExport'
 
-export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
-export interface Photo extends Row { area_id: string; element_id: string | null; path: string; original_path: string | null; caption: string | null; sort: number }
-export interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
+export type { Area, Element, Photo } from '../../lib/walkaround/data'
 
-const alive = (r: Row) => !r.deleted_at
 const COMMON = ['Reception', 'Office', 'Kitchen', 'Plant room', 'Comms room', 'Toilets', 'Corridor', 'Roof', 'External']
 const UNITS = ['nr', 'm', 'sum', 'item', 'pt']
 
 // Everything on the walkaround is read from and saved to this device first, so it works with no signal and syncs later.
 export function useWalkaround(jobId: string) {
-  return useLiveQuery(async () => {
-    const walks = (await db().walkarounds.where('job_id').equals(jobId).filter(alive).toArray()).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    const walk = walks[0]
-    const areas = walk ? ((await db().walkaround_areas.where('walkaround_id').equals(walk.id).filter(alive).toArray()) as Area[]).map((a) => ({ ...a, sort: Number(a.sort ?? 0) })).sort((a, b) => a.sort - b.sort) : []
-    const ids = areas.map((a) => a.id)
-    const elements = ids.length ? ((await db().walkaround_elements.where('area_id').anyOf(ids).filter(alive).toArray()) as Element[]).map((e) => ({ ...e, qty: Number(e.qty ?? 1), sort: Number(e.sort ?? 0) })).sort((a, b) => a.sort - b.sort) : []
-    const photos = ids.length ? ((await db().walkaround_photos.where('area_id').anyOf(ids).filter(alive).toArray()) as Photo[]).map((p) => ({ ...p, sort: Number(p.sort ?? 0) })).sort((a, b) => a.sort - b.sort) : []
-    return { walk, areas, elements, photos }
-  }, [jobId])
+  return useLiveQuery(() => loadWalkaround(jobId), [jobId])
 }
-
 export default function WalkaroundTab({ job }: { job: Job }) {
   const { can } = useAuth()
   const data = useWalkaround(job.id)
   const [name, setName] = useState('')
+  useEffect(() => {
+    const hide = () => { if (document.visibilityState === 'hidden') void commitAllDrafts() }
+    document.addEventListener('visibilitychange', hide)
+    window.addEventListener('pagehide', hide)
+    return () => { document.removeEventListener('visibilitychange', hide); window.removeEventListener('pagehide', hide) }
+  }, [])
   const edit = can('walkarounds')
   if (!edit) return <div className="card"><p className="muted">You don't have permission to see site walkarounds.</p></div>
   if (!data) return <p className="muted">Loading…</p>
@@ -64,7 +59,7 @@ export default function WalkaroundTab({ job }: { job: Job }) {
       </div>
       {!areas.length && <div className="card"><p className="muted">No areas yet. Tap one above to start.</p></div>}
       {areas.map((a) => <AreaCard key={a.id} area={a} jobId={job.id} elements={elements.filter((e) => e.area_id === a.id)} photos={photos.filter((p) => p.area_id === a.id)} />)}
-      {areas.length > 0 && <SowExport job={job} areas={areas} elements={elements} photos={photos} />}
+      {areas.length > 0 && <SowExport job={job} />}
     </>
   )
 }
@@ -87,20 +82,6 @@ async function attachPhotos(items: Kept[], jobId: string, areaId: string, elemen
     sort += 10
   }
   void uploadPendingPhotos()
-}
-
-// small previews of pictures chosen for a new item, before it has been added
-function PendingThumbs({ files, onRemove }: { files: Kept[]; onRemove: (i: number) => void }) {
-  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f.blob)), [files])
-  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
-  if (!files.length) return null
-  return (
-    <div className="thumbs">
-      {urls.map((u, i) => (
-        <div key={u} className="thumb"><img src={u} alt="" /><button type="button" className="x" aria-label="Remove this photo" onClick={() => onRemove(i)}>✕</button></div>
-      ))}
-    </div>
-  )
 }
 
 // an existing item: camera and note buttons side by side, then the note, then the thumbnails
@@ -137,25 +118,61 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
   const [unit, setUnit] = useState('nr')
   const [note, setNote] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
-  const [pending, setPending] = useState<Kept[]>([]) // photos accepted for the new item before it is added
-
+  const [draftId, setDraftId] = useState<string | null>(null) // the item being filled in below: it is already saved
   const [adding, setAdding] = useState(false)
   const [addErr, setAddErr] = useState('')
-  const addEl = async (e: FormEvent) => {
-    e.preventDefault()
-    const q = Number(qty.replace(/,/g, ''))
-    if (!desc.trim() || !Number.isFinite(q) || q < 0) return
-    setAdding(true); setAddErr('')
-    const id = newId()
+  // what is in the form right now, in a ref so it can be saved from anywhere (even as this card goes away)
+  const live = useRef<{ id: string | null; desc: string; qty: string; unit: string; note: string }>({ id: null, desc: '', qty: '1', unit: 'nr', note: '' })
+  live.current = { id: draftId ?? live.current.id, desc, qty, unit, note }
+  const working = useRef(false)
+  const photoSort = useRef(0)
+  // The item being filled in is part of the scope as soon as it has a description: it is created then, and every change to it
+  // is saved as you go. "Add another item" only clears the form to start the next one.
+  async function flush(): Promise<string | null> {
+    const d = live.current
+    if (!d.desc.trim()) return d.id
+    while (working.current) await new Promise((r) => setTimeout(r, 30))
+    working.current = true
     try {
-      await save('walkaround_elements', id, { area_id: a.id, description: desc.trim(), qty: q, unit: unit.trim() || 'nr', notes: note.trim() || null, sort: (elements.at(-1)?.sort ?? 0) + 10 })
-      if (pending.length) await attachPhotos(pending, jobId, a.id, id, 10)
-      setDesc(''); setQty('1'); setNote(''); setNoteOpen(false); setPending([])
-    } catch (er) {
-      setAddErr(er instanceof Error ? er.message : 'The item was added but a photo could not be.')
+      const q = Number(d.qty.replace(/,/g, ''))
+      const fields = { description: d.desc.trim(), qty: Number.isFinite(q) && q >= 0 ? q : 1, unit: d.unit.trim() || 'nr', notes: d.note.trim() || null }
+      let id = live.current.id
+      if (!id) {
+        id = newId()
+        live.current.id = id
+        const existing = await db().walkaround_elements.where('area_id').equals(a.id).filter((r) => !r.deleted_at).toArray()
+        const sort = existing.reduce((m, r) => Math.max(m, Number(r.sort ?? 0)), 0) + 10
+        await save('walkaround_elements', id, { area_id: a.id, sort, ...fields })
+        setDraftId(id)
+      } else {
+        const patch = diff(await db().walkaround_elements.get(id), fields)
+        if (Object.keys(patch).length) await save('walkaround_elements', id, patch)
+      }
+      return id
+    } finally {
+      working.current = false
     }
+  }
+  // save a moment after typing stops
+  useEffect(() => {
+    if (!desc.trim()) return
+    const t = setTimeout(() => void flush().catch(() => {}), 700)
+    return () => clearTimeout(t)
+  }, [desc, qty, unit, note]) // eslint-disable-line react-hooks/exhaustive-deps
+  // and always before leaving this screen, switching apps, or making the PDF / Excel file
+  useEffect(() => {
+    registerDraft(a.id, async () => { await flush() })
+    return () => { unregisterDraft(a.id); void flush().catch(() => {}) }
+  }, [a.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  async function another() {
+    setAdding(true); setAddErr('')
+    try { await flush() } catch (er) { setAddErr(er instanceof Error ? er.message : 'Could not save the item.'); setAdding(false); return }
+    live.current = { id: null, desc: '', qty: '1', unit: 'nr', note: '' }
+    setDraftId(null); setDesc(''); setQty('1'); setUnit('nr'); setNote(''); setNoteOpen(false)
     setAdding(false)
   }
+  const draftPhotos = photos.filter((p) => draftId && p.element_id === draftId)
+  const listed = elements.filter((e) => e.id !== draftId)
   const loose = photos.filter((p) => !p.element_id) // photos taken against the whole area before photos moved to items
   return (
     <div className="card">
@@ -167,8 +184,8 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
       <textarea id={'n' + a.id} key={a.notes ?? ''} rows={3} defaultValue={a.notes ?? ''} placeholder="What you see, what the client wants, access, existing condition…" onBlur={(e) => e.target.value !== (a.notes ?? '') && save('walkaround_areas', a.id, { notes: e.target.value.trim() || null })} />
 
       <h3 style={{ margin: '14px 0 4px' }}>What is needed here</h3>
-      {!elements.length && <p className="muted small">Nothing listed yet.</p>}
-      {elements.map((el) => (
+      {!listed.length && !draftId && <p className="muted small">Nothing listed yet.</p>}
+      {listed.map((el) => (
         <div key={el.id} className="lcard">
           <div className="rowtop">
             <input key={el.description} type="text" defaultValue={el.description} aria-label="What is needed" style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value !== el.description && save('walkaround_elements', el.id, { description: e.target.value.trim() })} />
@@ -183,22 +200,30 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
           <ItemExtras jobId={jobId} areaId={a.id} el={el} photos={photos.filter((p) => p.element_id === el.id)} />
         </div>
       ))}
-      <form onSubmit={addEl} className="lcard">
-        <label htmlFor={'d' + a.id}>Add an item</label>
+      <div className="lcard">
+        <div className="rowtop"><label htmlFor={'d' + a.id}>Add an item</label>{draftId && <span className="tag">saved</span>}</div>
         <input id={'d' + a.id} type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="e.g. Twin socket outlets" />
         <div className="lgrid">
           <div className="f"><label htmlFor={'nq' + a.id}>Qty</label><input id={'nq' + a.id} type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
         <div className="walk-actions">
-          <PhotoCapture onKeep={(blob, original) => setPending((p) => [...p, { blob, original }])} />
+          <PhotoCapture
+            canOpen={() => { if (!desc.trim()) { setAddErr('Type what the item is first, then add photos.'); return false } setAddErr(''); return true }}
+            onKeep={async (blob, original) => {
+              const id = await flush()
+              if (!id) { setAddErr('Type what the item is first, then add photos.'); return }
+              photoSort.current = Math.max(photoSort.current, draftPhotos.at(-1)?.sort ?? 0) + 10
+              await attachPhotos([{ blob, original }], jobId, a.id, id, photoSort.current)
+            }} />
           <button type="button" className="iconbtn" aria-expanded={noteOpen || !!note} onClick={() => setNoteOpen((o) => !o)}>📝 {note ? 'Note' : 'Add note'}</button>
         </div>
         {(noteOpen || !!note) && <input type="text" value={note} autoFocus={noteOpen && !note} onChange={(e) => setNote(e.target.value)} placeholder="Note" aria-label="Note for this item" style={{ marginTop: 8 }} />}
-        <PendingThumbs files={pending} onRemove={(i) => setPending((p) => p.filter((_, k) => k !== i))} />
+        {draftPhotos.length > 0 && <div className="thumbs">{draftPhotos.map((p) => <PhotoThumb key={p.id} photo={p} />)}</div>}
         {addErr && <p className="err" role="alert">{addErr}</p>}
-        <button className="btn" style={{ marginTop: 14 }} disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
-      </form>
+        <button type="button" className="btn" style={{ marginTop: 14 }} disabled={!desc.trim() || adding} onClick={another}>{adding ? 'Saving…' : '+ Add another item'}</button>
+        <p className="muted small" style={{ margin: '6px 0 0' }}>This item is already part of the scope as soon as you have typed what it is. Tap Add another item only to start the next one.</p>
+      </div>
       {loose.length > 0 && (
         <>
           <h3 style={{ margin: '14px 0 4px' }}>Other photos of this area</h3>
