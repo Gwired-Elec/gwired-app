@@ -8,7 +8,7 @@ import { formatGBP, roundHalfUp } from '../money'
 
 export interface QuoteClause { kind: 'exclusion' | 'assumption'; title: string; body: string; sort: number }
 export interface QuoteInput {
-  company: { name: string; address?: string | null; vat_number?: string | null; email?: string | null; phone?: string | null; terms?: string | null; valid_days?: number | null }
+  company: { name: string; address?: string | null; vat_number?: string | null; company_number?: string | null; email?: string | null; phone?: string | null; terms?: string | null; valid_days?: number | null }
   job: { job_number: string | null; title: string; site_address: string | null }
   client: { name: string; address?: string | null } | null
   estimate: Estimate
@@ -100,7 +100,7 @@ export async function buildQuotePdf(q: QuoteInput): Promise<Uint8Array> {
       logoH = h
     } catch { /* no logo: the company name on the right is enough */ }
   }
-  const coLines = [co.name, ...(co.address ? co.address.split('\n') : []), co.phone ?? '', co.email ?? '', co.vat_number ? `VAT no. ${co.vat_number}` : ''].filter(Boolean)
+  const coLines = [co.name, ...(co.address ? co.address.split('\n') : []), co.phone ?? '', co.email ?? '', co.vat_number ? `VAT no. ${co.vat_number}` : '', co.company_number ? `Company no. ${co.company_number}` : ''].filter(Boolean)
   let cy = y - 8
   coLines.forEach((s, i) => { page.drawText(clean(s), { x: R - (i === 0 ? bold : font).widthOfTextAtSize(clean(s), i === 0 ? 11 : 9), y: cy, size: i === 0 ? 11 : 9, font: i === 0 ? bold : font, color: i === 0 ? ink : grey }); cy -= i === 0 ? 15 : 12 })
   y -= Math.max(logoH, y - cy) + 14

@@ -29,6 +29,7 @@ export default function CompanyDetails() {
         <label htmlFor="cp">Phone</label><input id="cp" type="text" value={c.phone} onChange={(e) => set('phone', e.target.value)} />
         <label htmlFor="ce">Email</label><input id="ce" type="text" value={c.email} onChange={(e) => set('email', e.target.value)} />
         <label htmlFor="cv">VAT number</label><input id="cv" type="text" value={c.vat_number} onChange={(e) => set('vat_number', e.target.value)} />
+        <label htmlFor="cr">Company registration number</label><input id="cr" type="text" value={c.company_number} onChange={(e) => set('company_number', e.target.value)} />
         <label htmlFor="cd">Quotes are valid for (days)</label><input id="cd" type="text" inputMode="numeric" value={String(c.valid_days)} onChange={(e) => set('valid_days', e.target.value)} />
         <label htmlFor="ct">Standard terms (printed at the bottom of every quote)</label>
         <textarea id="ct" rows={6} value={c.terms} onChange={(e) => set('terms', e.target.value)} placeholder="Payment terms, exclusions, how variations are handled…" />
