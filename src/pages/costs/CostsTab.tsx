@@ -13,8 +13,10 @@ import { fmtDate, type Job } from '../../lib/jobs'
 import { formatGBP } from '../../lib/money'
 import { todayIso, useEvents } from '../../lib/planner/data'
 import { db } from '../../lib/sync/db'
-import { newId, remove, save } from '../../lib/sync/store'
+import { newId, remove, save, saveBatch } from '../../lib/sync/store'
 import { useLabels } from '../planner/shared'
+
+export interface PLine { id: string; description: string; unit: string; qty: number; costPence: number }
 
 const n = (v: unknown) => Number(v ?? 0)
 const gradeKey = (jobId: string) => 'gw-costgrade-' + jobId
@@ -48,7 +50,10 @@ export default function CostsTab({ job }: { job: Job }) {
     const varNet = approved.reduce((a, v) => a + acceptedValue(v, values.get(v.id) ?? 0), 0)
     const varLines = approved.flatMap((v) => { const ve = est.varEstimates.find((x) => x.variation_id === v.id); return ve ? est.lines.filter((l) => l.estimate_id === ve.id) : [] })
     const budget = budgetOf([...quoteLines, ...varLines])
-    return { g, dayRate, rows, sum, contract: quoteNet + varNet, budget, hasEstimate: !!e }
+    // every material on the quote and on approved variations: what the procurement list is built from
+    const matLines: PLine[] = [...quoteLines, ...varLines].filter((l) => l.kind === 'material').sort((a, b) => Number(a.sort) - Number(b.sort))
+      .map((l) => ({ id: l.id, description: l.description, unit: l.unit || 'each', qty: n(l.qty), costPence: Math.round(n(l.qty) * n(l.unit_cost)) }))
+    return { g, dayRate, rows, sum, contract: quoteNet + varNet, budget, hasEstimate: !!e, matLines }
   }, [est, com, grades, events, costs, grade, job.id, t0])
 
   if (!can('costs')) return <div className="card"><p className="muted">You do not have access to costs.</p></div>
@@ -96,9 +101,7 @@ export default function CostsTab({ job }: { job: Job }) {
         {edit && <AddTime job={job} dayRate={data.dayRate} createdBy={profile?.id ?? null} />}
       </div>
 
-      <CostList title="Materials bought" help="Supplier invoices and materials paid for." kind="material" status="actual" costs={costs} job={job} edit={edit} createdBy={profile?.id ?? null} total={sum.materials} open={open} setOpen={setOpen} />
-      <CostList title="Materials still needed" help="What still has to be bought. It counts as still to buy, not as spent, until you mark it as bought." kind="material" status="needed" costs={costs} job={job} edit={edit} createdBy={profile?.id ?? null} total={sum.stillToBuy} open={open} setOpen={setOpen} />
-      <CostList title="Misc and non-recoverable" help="Other costs on the job. Tick 'cannot be charged to the client' for costs the company has to absorb." kind="misc" status="actual" costs={costs} job={job} edit={edit} createdBy={profile?.id ?? null} total={other} open={open} setOpen={setOpen} />
+      <Procurement costs={costs} lines={data.matLines} job={job} edit={edit} createdBy={profile?.id ?? null} spent={sum.materials} toBuy={sum.stillToBuy} open={open} setOpen={setOpen} />
     </>
   )
 }
@@ -165,63 +168,96 @@ function AddTime({ job, dayRate, createdBy }: { job: Job; dayRate: number; creat
   )
 }
 
-// ---------------------------------------------------------------- materials and other costs
-function CostList({ title, help, kind, status, costs, job, edit, createdBy, total, open, setOpen }: {
-  title: string; help: string; kind: CCost['kind']; status: CCost['status']; costs: CCost[]; job: Job; edit: boolean; createdBy: string | null; total: number; open: string | null; setOpen: (k: string | null) => void
+// ---------------------------------------------------------------- materials: a mini procurement list
+// Every material from the estimate (and approved variations) can be pulled in; tick each one off as it is ordered and put its real cost in.
+// A row with status 'needed' is still to order (its cost is the expected cost); ticking it makes it 'actual' (ordered, money spent).
+function Procurement({ costs, lines, job, edit, createdBy, spent, toBuy, open, setOpen }: {
+  costs: CCost[]; lines: PLine[]; job: Job; edit: boolean; createdBy: string | null; spent: number; toBuy: number; open: string | null; setOpen: (k: string | null) => void
 }) {
   const [desc, setDesc] = useState('')
+  const [qty, setQty] = useState(1)
+  const [unit, setUnit] = useState('each')
   const [supplier, setSupplier] = useState('')
   const [amount, setAmount] = useState(0)
-  const [noCharge, setNoCharge] = useState(false)
-  const isMisc = kind === 'misc'
-  const rows = costs.filter((c) => (isMisc ? c.kind === 'misc' || c.kind === 'non_recoverable' : c.kind === 'material') && c.status === status).sort((a, b) => String(b.cost_date ?? '').localeCompare(String(a.cost_date ?? '')))
+  const [bought, setBought] = useState(false)
+  const rows = costs.filter((x) => x.kind === 'material')
+    .sort((a, b) => (a.status === b.status ? String(a.description).localeCompare(String(b.description)) : a.status === 'needed' ? -1 : 1))
+  const done = rows.filter((x) => x.status === 'actual').length
+  const have = new Set(rows.map((x) => x.estimate_line_id).filter(Boolean))
+  const missing = lines.filter((l) => !have.has(l.id))
 
+  async function pullIn() {
+    await saveBatch(missing.map((l) => ({ tbl: 'job_costs' as const, id: newId(), patch: { job_id: job.id, kind: 'material', status: 'needed', description: l.description, qty: l.qty, unit: l.unit, estimate_line_id: l.id, amount_pence: l.costPence, created_by: createdBy } })))
+  }
   async function add() {
     if (!desc.trim()) return
-    await save('job_costs', newId(), { job_id: job.id, kind: isMisc && noCharge ? 'non_recoverable' : kind, status, description: desc.trim(), supplier: supplier.trim() || null, amount_pence: amount, cost_date: todayIso(), created_by: createdBy })
-    setDesc(''); setSupplier(''); setAmount(0); setNoCharge(false)
+    await save('job_costs', newId(), { job_id: job.id, kind: 'material', status: bought ? 'actual' : 'needed', description: desc.trim(), qty, unit: unit.trim() || 'each', supplier: supplier.trim() || null, amount_pence: amount, cost_date: bought ? todayIso() : null, created_by: createdBy })
+    setDesc(''); setQty(1); setUnit('each'); setSupplier(''); setAmount(0); setBought(false)
   }
+  async function tick(x: CCost, on: boolean) {
+    await save('job_costs', x.id, on ? { status: 'actual', cost_date: todayIso() } : { status: 'needed' })
+    if (on) setOpen(x.id) // open it so the real cost can be put in
+  }
+  const qtyText = (x: CCost) => (x.qty != null && Number(x.qty) ? `${Number(x.qty)} ${x.unit ?? ''}`.trim() : '')
+
   return (
     <div className="card">
-      <div className="rowtop"><h2 style={{ margin: 0 }}>{title}</h2><strong>{formatGBP(total)}</strong></div>
-      <p className="muted small">{help}</p>
-      {!rows.length && <p className="muted small">Nothing here yet.</p>}
-      {rows.map((c) => (
-        <div className="lcard" key={c.id}>
-          <button type="button" className="linklike" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(open === c.id ? null : c.id)} aria-expanded={open === c.id}>
-            <div className="rowtop"><span><strong>{c.description || '(no description)'}</strong>{c.kind === 'non_recoverable' && <span className="tag"> non-recoverable</span>}</span><strong>{formatGBP(c.amount_pence)}</strong></div>
-            <span className="muted small">{[c.supplier, c.cost_date ? fmtDate(c.cost_date) : ''].filter(Boolean).join(' · ')}</span>
-          </button>
-          {open === c.id && (
-            <div style={{ marginTop: 8 }}>
-              <label>Description</label>
-              <input type="text" disabled={!edit} defaultValue={c.description} onBlur={(e) => e.target.value.trim() !== c.description && save('job_costs', c.id, { description: e.target.value.trim() })} />
-              <div className="lgrid">
-                <div className="f"><label>Supplier</label><input type="text" disabled={!edit} defaultValue={c.supplier ?? ''} onBlur={(e) => e.target.value.trim() !== (c.supplier ?? '') && save('job_costs', c.id, { supplier: e.target.value.trim() || null })} /></div>
-                <div className="f"><label>Cost (£)</label><MoneyInput pence={c.amount_pence} disabled={!edit} label="Cost" onCommit={(p) => save('job_costs', c.id, { amount_pence: p })} /></div>
-              </div>
-              <label>Date</label>
-              <input type="date" disabled={!edit} value={c.cost_date ?? ''} onChange={(e) => save('job_costs', c.id, { cost_date: e.target.value || null })} />
-              {isMisc && <label className="check"><input type="checkbox" disabled={!edit} checked={c.kind === 'non_recoverable'} onChange={(e) => save('job_costs', c.id, { kind: e.target.checked ? 'non_recoverable' : 'misc' })} /> Cannot be charged to the client</label>}
-              {edit && (
-                <div className="actions">
-                  {status === 'needed' && <button className="btn primary" onClick={() => save('job_costs', c.id, { status: 'actual', cost_date: todayIso() })}>Mark as bought</button>}
-                  <button className="btn" onClick={() => confirm('Delete this?') && remove('job_costs', c.id)}>Delete</button>
-                </div>
-              )}
-            </div>
-          )}
+      <div className="rowtop"><h2 style={{ margin: 0 }}>Materials</h2><strong>{done} of {rows.length} ordered</strong></div>
+      <p className="muted small">Tick each material off as it is ordered, and put its real cost in. Spent {formatGBP(spent)}; still to order about {formatGBP(toBuy)}.</p>
+      {rows.length > 0 && <div style={{ height: 8, background: 'var(--grey-2, #ddd)', borderRadius: 4, overflow: 'hidden', margin: '4px 0 10px' }}><div style={{ width: `${Math.round((done / rows.length) * 100)}%`, height: '100%', background: '#15803d' }} /></div>}
+      {edit && missing.length > 0 && (
+        <div className="notice" style={{ margin: '8px 0' }}>
+          <p style={{ margin: '0 0 6px' }}><strong>{missing.length} material{missing.length === 1 ? '' : 's'} from the estimate not on this list yet.</strong></p>
+          <button className="btn primary" style={{ marginTop: 0 }} onClick={pullIn}>Pull them in from the estimate</button>
         </div>
-      ))}
-      {edit && (
-        <div style={{ marginTop: 8 }}>
-          <label htmlFor={'cd' + title}>{status === 'needed' ? 'Add something that is needed' : 'Add a cost'}</label>
-          <input id={'cd' + title} type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={kind === 'material' ? 'e.g. 100m 2.5mm twin and earth' : 'e.g. Skip hire'} />
-          <div className="lgrid">
-            <div className="f"><label>{kind === 'material' ? 'Supplier' : 'Who / where'}</label><input type="text" value={supplier} onChange={(e) => setSupplier(e.target.value)} /></div>
-            <div className="f"><label>{status === 'needed' ? 'Expected cost (£)' : 'Cost (£)'}</label><MoneyInput pence={amount} label="Cost" onCommit={setAmount} /></div>
+      )}
+      {!rows.length && !missing.length && <p className="muted small">Nothing here yet. Add the materials this job needs below.</p>}
+      {rows.map((x) => {
+        const ordered = x.status === 'actual'
+        return (
+          <div className="lcard" key={x.id}>
+            <div className="rowtop">
+              <label className="check" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+                <input type="checkbox" disabled={!edit} checked={ordered} onChange={(e) => tick(x, e.target.checked)} aria-label={`Ordered: ${x.description}`} />
+                <span style={{ textDecoration: ordered ? 'line-through' : 'none', opacity: ordered ? 0.7 : 1 }}><strong>{x.description || '(no description)'}</strong></span>
+              </label>
+              <strong>{formatGBP(x.amount_pence)}</strong>
+            </div>
+            <button type="button" className="linklike" style={{ width: '100%', textAlign: 'left', minHeight: 0, marginLeft: 28 }} onClick={() => setOpen(open === x.id ? null : x.id)} aria-expanded={open === x.id}>
+              <span className="muted small">{[qtyText(x), x.supplier, ordered ? (x.cost_date ? `ordered ${fmtDate(x.cost_date)}` : 'ordered') : 'to order'].filter(Boolean).join(' · ')} · {open === x.id ? 'close' : 'details'}</span>
+            </button>
+            {open === x.id && (
+              <div style={{ marginTop: 8 }}>
+                <label>Description</label>
+                <input type="text" disabled={!edit} defaultValue={x.description} onBlur={(e) => e.target.value.trim() !== x.description && save('job_costs', x.id, { description: e.target.value.trim() })} />
+                <div className="lgrid">
+                  <div className="f"><label>Quantity</label><NumInput value={Number(x.qty ?? 0)} disabled={!edit} label="Quantity" onCommit={(v) => save('job_costs', x.id, { qty: v })} /></div>
+                  <div className="f"><label>Unit</label><input type="text" disabled={!edit} defaultValue={x.unit ?? ''} onBlur={(e) => e.target.value.trim() !== (x.unit ?? '') && save('job_costs', x.id, { unit: e.target.value.trim() || null })} /></div>
+                </div>
+                <div className="lgrid">
+                  <div className="f"><label>Supplier</label><input type="text" disabled={!edit} defaultValue={x.supplier ?? ''} onBlur={(e) => e.target.value.trim() !== (x.supplier ?? '') && save('job_costs', x.id, { supplier: e.target.value.trim() || null })} /></div>
+                  <div className="f"><label>{ordered ? 'Cost (£)' : 'Expected cost (£)'}</label><MoneyInput pence={x.amount_pence} disabled={!edit} label="Cost" onCommit={(p) => save('job_costs', x.id, { amount_pence: p })} /></div>
+                </div>
+                {ordered && <><label>Date ordered</label><input type="date" disabled={!edit} value={x.cost_date ?? ''} onChange={(e) => save('job_costs', x.id, { cost_date: e.target.value || null })} /></>}
+                {edit && <div className="actions"><button className="btn" onClick={() => confirm('Delete this material?') && remove('job_costs', x.id)}>Delete</button></div>}
+              </div>
+            )}
           </div>
-          {isMisc && <label className="check"><input type="checkbox" checked={noCharge} onChange={(e) => setNoCharge(e.target.checked)} /> Cannot be charged to the client (non-recoverable)</label>}
+        )
+      })}
+      {edit && (
+        <div style={{ marginTop: 10, borderTop: '1px solid var(--grey-2, #ddd)', paddingTop: 8 }}>
+          <label htmlFor="pm-d">Add a material (small items too)</label>
+          <input id="pm-d" type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="e.g. Cable clips, 20mm glands, fixings" />
+          <div className="lgrid">
+            <div className="f"><label>Quantity</label><NumInput value={qty} label="Quantity" onCommit={setQty} /></div>
+            <div className="f"><label htmlFor="pm-u">Unit</label><input id="pm-u" type="text" value={unit} onChange={(e) => setUnit(e.target.value)} /></div>
+          </div>
+          <div className="lgrid">
+            <div className="f"><label htmlFor="pm-s">Supplier</label><input id="pm-s" type="text" value={supplier} onChange={(e) => setSupplier(e.target.value)} /></div>
+            <div className="f"><label>{bought ? 'Cost (£)' : 'Expected cost (£)'}</label><MoneyInput pence={amount} label="Cost" onCommit={setAmount} /></div>
+          </div>
+          <label className="check"><input type="checkbox" checked={bought} onChange={(e) => setBought(e.target.checked)} /> Already bought</label>
           <button className="btn primary" disabled={!desc.trim()} onClick={add}>Add</button>
         </div>
       )}

@@ -9,6 +9,7 @@ export interface CEvent { id: string; title: string; event_date: string; end_dat
 export interface CCost {
   id: string; job_id: string; kind: 'labour' | 'material' | 'misc' | 'non_recoverable'; status: 'actual' | 'needed'; description: string; supplier: string | null; person: string | null
   days: number | null; rate_pence: number | null; amount_pence: number; cost_date: string | null; source_event_id: string | null; notes: string | null
+  qty?: number | null; unit?: string | null; estimate_line_id?: string | null
 }
 
 const dayNum = (s: string) => Date.parse(s.slice(0, 10) + 'T00:00:00Z') / 86_400_000

@@ -82,7 +82,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   calendar_events: ['title', 'notes', 'location', 'job_id', 'assigned_to', 'event_date', 'end_date', 'all_day', 'start_time', 'end_time', 'created_by', 'deleted_at'],
   xero_invoice_links: [], // written only by the xero function; the app just reads it
   job_files: ['job_id', 'name', 'category', 'path', 'size_bytes', 'mime', 'notes', 'created_by', 'deleted_at'],
-  job_costs: ['job_id', 'kind', 'status', 'description', 'supplier', 'person', 'days', 'rate_pence', 'amount_pence', 'cost_date', 'source_event_id', 'notes', 'created_by', 'deleted_at'],
+  job_costs: ['job_id', 'kind', 'status', 'description', 'supplier', 'person', 'days', 'rate_pence', 'amount_pence', 'cost_date', 'source_event_id', 'notes', 'created_by', 'deleted_at', 'qty', 'unit', 'estimate_line_id'],
 }
 
 export interface OutboxOp {

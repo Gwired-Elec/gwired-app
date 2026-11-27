@@ -29,4 +29,5 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 024_job_files.sql | files on a job (tech sheets, drawings) with a private storage bucket | run |
 | 025_job_costs.sql | job costs: labour from the diary (overridable), materials, misc, non-recoverable | run |
 | 026_quote_portal.sql | client quote links (also deploy the quote-portal function, Verify JWT off) | run |
+| 027_procurement.sql | materials procurement list on the Costs tab (quantity, unit, link to the estimate line) | not yet |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | run |
