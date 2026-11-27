@@ -26,7 +26,8 @@ export default function SignIn() {
         if (error) {
           // the real reason is shown only while developing (npm run dev), never in the built app
           const detail = import.meta.env.DEV ? ` [dev only: ${error.status ?? ''} ${error.code ?? ''} ${error.message}]` : ''
-          setMsg({ kind: 'err', text: (navigator.onLine ? GENERIC_FAIL : "You're offline. Connect to sign in for the first time on this device.") + detail })
+          const wrong = error.status === 400 || error.code === 'invalid_credentials'
+          setMsg({ kind: 'err', text: (!navigator.onLine ? "You're offline. Connect to sign in for the first time on this device." : wrong ? GENERIC_FAIL : `Couldn't reach the sign-in service (${error.status ?? 'no connection'}: ${error.message}). Try again, or switch off any content blocker or private relay.`) + detail })
         }
       } else if (mode === 'magic') {
         await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: false, emailRedirectTo: window.location.origin } })
