@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import EstimateTab from './estimating/EstimateTab'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../lib/auth'
 import { fmtDate, fmtDateTime, JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow, type Job } from '../lib/jobs'
@@ -22,7 +22,11 @@ export default function JobDetail() {
   const unsynced = useOutboxIds()
   const user = { id: profile!.id, name: profile!.full_name || profile!.email }
   const [ask, dialog] = useStatusFlow(statuses, reasons, user)
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Overview')
+  // the tab lives in the address (?tab=Estimate), so refreshing or coming back lands on the same tab
+  const [params, setParams] = useSearchParams()
+  const asked = params.get('tab')
+  const tab = (TABS as readonly string[]).includes(asked ?? '') ? (asked as (typeof TABS)[number]) : 'Overview'
+  const setTab = (t: (typeof TABS)[number]) => setParams(t === 'Overview' ? {} : { tab: t }, { replace: true })
 
   if (job === undefined) return <p className="muted">Loading…</p>
   if (!job || job.deleted_at) return <><p><Link to="/jobs">← Jobs</Link></p><div className="card"><p>That job isn't on this device. It may not have synced yet, or it may have been removed.</p></div></>
