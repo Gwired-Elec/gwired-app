@@ -384,7 +384,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
                   ))}
                 </div>
                 {adding?.section === s.id && (
-                  <AddPanel key={adding.mode + (adding.prefill ?? '')} mode={adding.mode} prefill={adding.prefill} onNewItem={(t) => setAdding({ section: s.id, mode: 'own', prefill: t })} onCreate={(t) => createAndAdd(t, s.id)} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost}
+                  <AddPanel key={adding.mode + (adding.prefill ?? '')} mode={adding.mode} prefill={adding.prefill} onNewItem={(t) => setAdding({ section: s.id, mode: 'own', prefill: t })} onCreate={(t) => createAndAdd(t, s.id)} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost} ohpPct={uplift.mat}
                     onMaterial={(m) => addMaterial(m, s.id)} onPoint={(id, q) => addPoint(id, q, s.id)} onDay={(id, d) => addDay(id, d, s.id)} onAssembly={(id) => addAssembly(id, s.id)} onPrelim={(id) => addPrelim(id, s.id)} onOwn={(f) => addOwn(f, s.id)} />
                 )}
                 {!sl.length && ordered.length > 1 && <button className="link small" onClick={() => remove('estimate_sections', s.id)}>Remove this empty section</button>}
@@ -452,7 +452,7 @@ function AddPanel(p: {
   labour: NonNullable<ReturnType<typeof useLabourRates>>
   assemblies: NonNullable<ReturnType<typeof useAssemblies>>
   prelims: NonNullable<ReturnType<typeof usePrelims>>
-  staleDays: number; defaultMarkup: number; seeCost: boolean
+  staleDays: number; defaultMarkup: number; seeCost: boolean; ohpPct: number
   onMaterial: (m: Material) => void
   onPoint: (id: string, qty: number) => void
   onDay: (id: string, days: number) => void
@@ -466,6 +466,9 @@ function AddPanel(p: {
   const [err, setErr] = useState('')
   const n = Number(qty)
   const okQty = Number.isFinite(n) && n > 0
+  // the price the line will get if Sell each is left blank: cost + markup, then overheads and profit, to the penny
+  const typedCost = own.cost.trim() ? priceAndPer(own.cost) : null
+  const suggested = typedCost && typedCost.costPence > 0 ? Math.round((typedCost.costPence / typedCost.perQty) * (1 + p.defaultMarkup / 100) * (1 + p.ohpPct / 100)) : null
 
   if (p.mode === 'material') return <div className="subform"><MaterialPicker materials={p.materials} prices={p.prices} staleDays={p.staleDays} defaultMarkup={p.defaultMarkup} seeCost={p.seeCost} onPick={p.onMaterial} onNew={p.onNewItem} onCreate={p.onCreate} /></div>
 
@@ -522,8 +525,9 @@ function AddPanel(p: {
         <div className="f"><label htmlFor="oq">Qty</label><input id="oq" type="text" inputMode="decimal" value={own.qty} onChange={(e) => setOwn({ ...own, qty: e.target.value })} /></div>
         <div className="f"><label htmlFor="ou">Unit</label><input id="ou" type="text" value={own.unit} onChange={(e) => setOwn({ ...own, unit: e.target.value })} /></div>
         {p.seeCost && <div className="f"><label htmlFor="oc">Cost each £</label><input id="oc" type="text" inputMode="decimal" value={own.cost} onChange={(e) => setOwn({ ...own, cost: e.target.value })} /></div>}
-        <div className="f"><label htmlFor="os">Sell each £ (blank = cost + {p.defaultMarkup}%)</label><input id="os" type="text" inputMode="decimal" value={own.sell} onChange={(e) => setOwn({ ...own, sell: e.target.value })} /></div>
+        <div className="f"><label htmlFor="os">Sell each £</label><input id="os" type="text" inputMode="decimal" placeholder={suggested !== null ? (suggested / 100).toFixed(2) : ''} value={own.sell} onChange={(e) => setOwn({ ...own, sell: e.target.value })} /></div>
       </div>
+      {suggested !== null && !own.sell.trim() && <p className="small">Suggested sell price: <strong>{formatGBP(suggested)}</strong> each (cost + {p.defaultMarkup}% markup{p.ohpPct > 0 ? `, + ${p.ohpPct}% overheads and profit` : ''}). Leave Sell each blank to use it, or type your own.</p>}
       {p.seeCost && <p className="muted small">If it has a cost and isn't in the materials database yet, it is added there automatically, dated today.</p>}
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn primary">Add</button>
