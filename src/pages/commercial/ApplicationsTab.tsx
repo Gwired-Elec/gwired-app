@@ -4,13 +4,15 @@ import { useAuth } from '../../lib/auth'
 import { acceptedValue, contractEstimate, contractItems, freshLines, lineFromPct, useCommercial, variationValues, vref, type Application, type ApplicationLine, type Invoice } from '../../lib/commercial/data'
 import { buildApplicationPdf, buildInvoicePdf } from '../../lib/commercial/pdf'
 import { deliverPdf, docBase } from '../../lib/commercial/share'
+import XeroPanel from './XeroPanel'
 import { useJobEstimates } from '../../lib/estimating/estimates'
-import { useClients, type Job } from '../../lib/jobs'
+import { fmtDate, useClients, type Job } from '../../lib/jobs'
 import { formatGBP, percentOf } from '../../lib/money'
 import { chain, invoiceTotals, pctFromValue, type Valuation } from '../../lib/money/applications'
 import { newId, remove, save, saveBatch } from '../../lib/sync/store'
 
 const today = () => new Date().toISOString().slice(0, 10)
+const addDaysTo = (s: string, n: number) => { const d = new Date(s.slice(0, 10) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 const STEPS = Array.from({ length: 21 }, (_, i) => i * 5)
 
 export default function ApplicationsTab({ job }: { job: Job }) {
@@ -174,6 +176,11 @@ function AppEditor({ job, app, lines, prevLines, v, before, edit, last, onGone }
         <Sum a="Amount now due" b={formatGBP(v.due)} bold />
       </div>
 
+      <XeroPanel ready={app.status !== 'draft'} send={{
+        kind: 'application', id: app.id, client_id: job.client_id, net_pence: v.thisNet, vat_rate: app.vat_rate, reverse_charge: app.reverse_charge,
+        date: app.app_date, due_date: addDaysTo(app.app_date, 30), reference: `${job.job_number ?? ''} Application ${app.number}`.trim(),
+        description: `Application for payment ${app.number}${app.period_to ? ', valuation to ' + fmtDate(app.period_to) : ''} - ${job.title}${app.retention_pct > 0 ? ` (after ${app.retention_pct}% retention)` : ''}`,
+      }} />
       <label htmlFor={'an' + app.id}>Notes (printed on the application)</label>
       <textarea id={'an' + app.id} rows={2} disabled={locked} defaultValue={app.notes ?? ''} onBlur={(e) => e.target.value !== (app.notes ?? '') && set({ notes: e.target.value || null })} />
       {err && <p className="err" role="alert">{err}</p>}
@@ -290,6 +297,10 @@ function InvoiceEditor({ job, inv, edit, onGone }: { job: Job; inv: Invoice; edi
         <div className="f"><label htmlFor={'iu' + inv.id}>Payment due</label><input id={'iu' + inv.id} type="date" disabled={locked} value={inv.due_date ?? ''} onChange={(e) => set({ due_date: e.target.value || null })} /></div>
       </div>
       <label className="check"><input type="checkbox" disabled={locked} checked={inv.reverse_charge} onChange={(e) => set({ reverse_charge: e.target.checked })} /> Domestic reverse charge VAT (no VAT charged)</label>
+      <XeroPanel ready={inv.status !== 'draft'} send={{
+        kind: 'invoice', id: inv.id, client_id: job.client_id, net_pence: inv.net_pence, vat_rate: inv.vat_rate, reverse_charge: inv.reverse_charge,
+        date: inv.inv_date, due_date: inv.due_date ?? addDaysTo(inv.inv_date, 14), reference: ref(job, inv), description: inv.description || 'Electrical works',
+      }} />
       <p><strong>Total {formatGBP(t.total)}</strong> <span className="muted small">({formatGBP(t.net)} + VAT {formatGBP(t.vat)})</span></p>
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn primary" onClick={pdf} disabled={busy}>{busy ? 'Making…' : 'Make invoice PDF'}</button>

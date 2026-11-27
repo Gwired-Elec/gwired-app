@@ -44,6 +44,9 @@ export default function More() {
         <Link className="card linkcard" to="/more/company"><strong>Company details</strong><span className="muted"> Name, address, VAT number and quote terms</span></Link>
       )}
       {can('settings') && (
+        <Link className="card linkcard" to="/more/xero"><strong>Xero</strong><span className="muted"> Connect Xero so invoices and applications can be sent across</span></Link>
+      )}
+      {can('settings') && (
         <Link className="card linkcard" to="/more/pipeline"><strong>Job pipeline</strong><span className="muted"> Statuses and lost reasons</span></Link>
       )}
       {can('users') && (
