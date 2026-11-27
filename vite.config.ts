@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // G|Wired always uses 5180 so it never clashes with dbp-app on 5173/5174
+  server: { port: 5180, strictPort: true },
   plugins: [
     react(),
     // Installable app that opens from the device's cache with no signal (built app only, not npm run dev).

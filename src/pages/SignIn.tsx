@@ -22,7 +22,11 @@ export default function SignIn() {
     try {
       if (mode === 'password') {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-        if (error) setMsg({ kind: 'err', text: navigator.onLine ? GENERIC_FAIL : "You're offline. Connect to sign in for the first time on this device." })
+        if (error) {
+          // the real reason is shown only while developing (npm run dev), never in the built app
+          const detail = import.meta.env.DEV ? ` [dev only: ${error.status ?? ''} ${error.code ?? ''} ${error.message}]` : ''
+          setMsg({ kind: 'err', text: (navigator.onLine ? GENERIC_FAIL : "You're offline. Connect to sign in for the first time on this device.") + detail })
+        }
       } else if (mode === 'magic') {
         await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false, emailRedirectTo: window.location.origin } })
         setMsg({ kind: 'ok', text: 'If that email has an account, a sign-in link is on its way.' })
@@ -30,8 +34,8 @@ export default function SignIn() {
         await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin })
         setMsg({ kind: 'ok', text: 'If that email has an account, a reset link is on its way.' })
       }
-    } catch {
-      setMsg({ kind: 'err', text: 'Something went wrong. Check your connection and try again.' })
+    } catch (e) {
+      setMsg({ kind: 'err', text: 'Something went wrong. Check your connection and try again.' + (import.meta.env.DEV ? ` [dev only: ${String(e)}]` : '') })
     }
     setBusy(false)
   }
