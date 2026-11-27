@@ -77,7 +77,8 @@ export function useReminders(): Reminder[] {
 // ---------------------------------------------------------------- diary file (.ics) for Outlook, Google and Apple calendars
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
 const ymd = (s: string) => s.replace(/-/g, '')
-export function buildIcs(events: CalEvent[], todos: Todo[], jobName: (id: string | null) => string, now = new Date()): string {
+// to-dos are deliberately not written to the calendar file (the second argument is kept so callers need not change)
+export function buildIcs(events: CalEvent[], _todos: Todo[], jobName: (id: string | null) => string, now = new Date()): string {
   const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
   const out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//G|Wired Electrical Services//Diary//EN', 'CALSCALE:GREGORIAN']
   for (const e of events) {
@@ -93,12 +94,6 @@ export function buildIcs(events: CalEvent[], todos: Todo[], jobName: (id: string
     }
     if (e.location) out.push(`LOCATION:${esc(e.location)}`)
     const desc = [job, e.notes].filter(Boolean).join('\n')
-    if (desc) out.push(`DESCRIPTION:${esc(desc)}`)
-    out.push('END:VEVENT')
-  }
-  for (const t of todos.filter((x) => x.due_date && !x.done_at && x.show_in_diary)) {
-    out.push('BEGIN:VEVENT', `UID:${t.id}@gwired`, `DTSTAMP:${stamp}`, `SUMMARY:${esc('To do: ' + t.title)}`, `DTSTART;VALUE=DATE:${ymd(t.due_date!)}`, `DTEND;VALUE=DATE:${ymd(addDaysIso(t.due_date!, 1))}`)
-    const desc = [jobName(t.job_id), t.notes].filter(Boolean).join('\n')
     if (desc) out.push(`DESCRIPTION:${esc(desc)}`)
     out.push('END:VEVENT')
   }

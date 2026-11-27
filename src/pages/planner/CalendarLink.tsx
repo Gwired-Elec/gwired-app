@@ -27,7 +27,7 @@ export default function CalendarLink({ onDownload }: { onDownload: () => void })
         <>
           <h3 style={{ margin: '12px 0 4px' }}>Show in Apple Calendar</h3>
           <p className="muted small">Subscribe your phone's calendar to the diary. It updates by itself (Apple decides how often, usually within the hour). It is read-only: add and change entries here in G|Wired. The link is private to you, so do not share it.</p>
-          <label className="check"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Only entries and to-dos for me (or for anyone)</label>
+          <label className="check"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Only entries for me (or for anyone)</label>
           {err && <p className="err" role="alert">{err}</p>}
           {busy && <p className="muted small">Getting your link…</p>}
           {https && (

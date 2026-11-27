@@ -28,7 +28,7 @@ describe('diary dates', () => {
 })
 
 describe('calendar file', () => {
-  it('writes timed, all-day and to-do entries', () => {
+  it('writes timed and all-day entries, and leaves to-dos out', () => {
     const ev = [
       { id: 'a', title: 'Site, survey', event_date: '2026-11-27', end_date: null, all_day: false, start_time: '09:30', end_time: '11:00', location: '2 Low Rd', job_id: 'j', notes: null },
       { id: 'b', title: 'Delivery', event_date: '2026-11-28', end_date: '2026-11-29', all_day: true, start_time: null, end_time: null, location: null, job_id: null, notes: 'Rexel' },
@@ -41,7 +41,7 @@ describe('calendar file', () => {
     expect(ics).toContain('DTEND:20261127T110000')
     expect(ics).toContain('DTSTART;VALUE=DATE:20261128')
     expect(ics).toContain('DTEND;VALUE=DATE:20261130')
-    expect(ics).toContain('SUMMARY:To do: Order cable')
+    expect(ics).not.toContain('Order cable')
     expect(ics).toContain('DESCRIPTION:GW-001 Rewire')
     expect(ics.endsWith('END:VCALENDAR\r\n')).toBe(true)
   })
