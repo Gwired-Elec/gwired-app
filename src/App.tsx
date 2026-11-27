@@ -5,7 +5,8 @@ import Layout from './components/Layout'
 import SignIn from './pages/SignIn'
 import ResetPassword from './pages/ResetPassword'
 import Home from './pages/Home'
-import ComingSoon from './pages/ComingSoon'
+import TodosPage from './pages/planner/Todos'
+import DiaryPage from './pages/planner/Diary'
 import More from './pages/More'
 import Users from './pages/Users'
 import CompanyDetails from './pages/CompanyDetails'
@@ -66,8 +67,8 @@ function AppRoutes() {
         <Route path="jobs/:id" element={<JobDetail />} />
         <Route path="clients" element={<ClientList />} />
         <Route path="clients/:id" element={<ClientDetail />} />
-        <Route path="diary" element={<ComingSoon title="Diary" phase="Phase 8" />} />
-        <Route path="todos" element={<ComingSoon title="To-dos" phase="Phase 8" />} />
+        <Route path="diary" element={<DiaryPage />} />
+        <Route path="todos" element={<TodosPage />} />
         <Route path="more" element={<More />} />
         <Route path="more/users" element={<Users />} />
         <Route path="more/company" element={<CompanyDetails />} />
