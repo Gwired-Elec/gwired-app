@@ -22,17 +22,17 @@ export default function SignIn() {
     setKeepSignedIn(keep) // must be set before the session is stored
     try {
       if (mode === 'password') {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
         if (error) {
           // the real reason is shown only while developing (npm run dev), never in the built app
           const detail = import.meta.env.DEV ? ` [dev only: ${error.status ?? ''} ${error.code ?? ''} ${error.message}]` : ''
           setMsg({ kind: 'err', text: (navigator.onLine ? GENERIC_FAIL : "You're offline. Connect to sign in for the first time on this device.") + detail })
         }
       } else if (mode === 'magic') {
-        await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false, emailRedirectTo: window.location.origin } })
+        await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: false, emailRedirectTo: window.location.origin } })
         setMsg({ kind: 'ok', text: 'If that email has an account, a sign-in link is on its way.' })
       } else {
-        await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin })
+        await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: window.location.origin })
         setMsg({ kind: 'ok', text: 'If that email has an account, a reset link is on its way.' })
       }
     } catch (e) {
@@ -59,11 +59,11 @@ export default function SignIn() {
         </div>
         <form onSubmit={submit}>
           <label htmlFor="email">Email</label>
-          <input id="email" type="email" inputMode="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input id="email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           {mode === 'password' && (
             <>
               <label htmlFor="pw">Password</label>
-              <input id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input id="pw" autoCapitalize="none" autoCorrect="off" spellCheck={false} type={show ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
               <label className="check"><input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show password</label>
               <label className="check"><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} /> Keep me signed in on this device</label>
             </>
