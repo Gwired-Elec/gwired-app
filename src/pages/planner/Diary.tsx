@@ -104,10 +104,10 @@ export function DiaryPanel({ jobId }: { jobId?: string }) {
       <div className="card">
         <div className="rowtop">
           <div className="chips" role="group" aria-label="View">
-            <button className={`chip ${view === 'week' ? 'on' : ''}`} onClick={() => setView('week')}>Week</button>
-            <button className={`chip ${view === 'month' ? 'on' : ''}`} onClick={() => setView('month')}>Month</button>
-            <button className={`chip ${!mine ? 'on' : ''}`} onClick={() => setMine(false)}>Everyone</button>
-            <button className={`chip ${mine ? 'on' : ''}`} onClick={() => setMine(true)}>Mine</button>
+            <button className={`chip seg ${view === 'week' ? 'on' : ''}`} onClick={() => setView('week')}>Week</button>
+            <button className={`chip seg ${view === 'month' ? 'on' : ''}`} onClick={() => setView('month')}>Month</button>
+            <button className={`chip seg ${!mine ? 'on' : ''}`} onClick={() => setMine(false)}>Everyone</button>
+            <button className={`chip seg ${mine ? 'on' : ''}`} onClick={() => setMine(true)}>Mine</button>
           </div>
         </div>
         <div className="rowtop" style={{ alignItems: 'center', marginTop: 8 }}>
