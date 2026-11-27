@@ -54,7 +54,7 @@ export default function JobDetail() {
 
       {tab === 'Overview' && <Overview job={job} fin={fin} editable={editable} user={user} />}
       {tab === 'Activity' && <Activity jobId={job.id} />}
-      {tab === 'Estimate' && <EstimateTab job={job} user={user} />}
+      {tab === 'Estimate' && <div className="est"><EstimateTab job={job} user={user} /></div>}
       {tab !== 'Overview' && tab !== 'Activity' && tab !== 'Estimate' && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
       {dialog}
     </>

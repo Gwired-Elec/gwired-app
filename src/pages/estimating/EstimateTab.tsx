@@ -102,7 +102,7 @@ function Revisions({ estimates, lines, current, onPick, onNew }: { estimates: Es
     <div className="card">
       <div className="rowtop">
         <h2 style={{ margin: 0 }}>Estimate</h2>
-        {onNew && <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={onNew}>New revision (copy of {revLetter(current.rev)})</button>}
+        {onNew && <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={onNew} title={`Copies revision ${revLetter(current.rev)} so you can change the price`}>+ New revision</button>}
       </div>
       <div className="chips" role="group" aria-label="Revisions">
         {estimates.map((e) => (

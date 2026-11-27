@@ -157,3 +157,23 @@ table.mini tr.hdr td { background: var(--grey-1); font-weight: 700; }
 .check { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 .check input { width: auto; }
 table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2); }
+
+/* estimate builder on a phone: smaller buttons, chips and boxes so more fits on screen */
+@media (max-width: 640px) {
+  .est .btn { min-height: 38px; padding: 0 12px; font-size: .9rem; border-radius: 8px; }
+  .est input[type=text], .est select { min-height: 40px; padding: 0 10px; font-size: 16px; } /* 16px stops iPhone zooming in */
+  .est .chips { gap: 6px; padding: 2px 0 8px; }
+  .est .chip { min-height: 32px; padding: 0 11px; font-size: .85rem; border-width: 1.5px; gap: 4px; }
+  .est .card { padding: 12px; margin-bottom: 10px; }
+  .est h2 { font-size: 1.05rem; margin-bottom: 6px; }
+  .est label { font-size: .8rem; margin-top: 8px; }
+  .est .lgrid { grid-template-columns: repeat(2, 1fr); gap: 4px 8px; margin-top: 4px; }
+  .est .lgrid .f label { font-size: .72rem; margin-top: 4px; }
+  .est .lcard { padding: 8px 0; }
+  .est .rowtop { gap: 8px; align-items: center; }
+  .est .rowtop .btn { flex: none; }
+  .est .subform { padding-left: 10px; margin-top: 8px; }
+  .est .pick { padding: 8px 10px; }
+  .est table.mini { font-size: .85rem; }
+  .est .warnbox { padding: 8px 10px; font-size: .88rem; }
+}
