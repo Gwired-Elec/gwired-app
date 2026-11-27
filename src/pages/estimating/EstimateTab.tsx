@@ -22,7 +22,6 @@ import { METHODS, hourlyCharge, hourlyCost } from '../../lib/estimating/data'
 import { buildQuotePdf } from '../../lib/estimating/quotePdf'
 import { cachedCompany, loadCompany } from '../../lib/company'
 import ClientLink from './ClientLink'
-import { starterTodos } from '../../lib/planner/starter'
 import { useClients, useReasons, useStatuses, useStatusFlow } from '../../lib/jobs'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -161,7 +160,7 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
   const editable = canEdit && draft && !variation?.locked
   const totals = useMemo(() => estimateTotals(lines, est), [lines, est])
   const uplift = upliftOf(est)
-  const jobRef = job.job_number ?? 'unnumbered job'
+  const jobRef = [job.job_number, job.title].filter(Boolean).join(' ') || 'unnumbered job'
   const rate = labour?.find((l) => l.id === est.labour_rate_id) ?? labour?.[0]
 
   if (!materials || !prices || !labour || !suppliers || !points || !assemblies || !prelims) return <p className="muted">Loading…</p>
@@ -379,13 +378,11 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
     if (job.status === 'estimating' && statuses?.some((x) => x.slug === 'quoted')) askStatus(job, 'quoted')
   }
 
-  // one tap when the client says yes (by phone, email or in person): quote accepted, job Live, starter checklist added to its to-dos
+  // one tap when the client says yes (by phone, email or in person): quote accepted and job Live
   async function acceptAndStart() {
-    if (!window.confirm('Mark this quote as accepted, move the job to Live and add the starter checklist to its to-dos?')) return
+    if (!window.confirm('Mark this quote as accepted, move the job to Live?')) return
     await setEst({ status: 'accepted' })
     if (job.status === 'estimating' || job.status === 'quoted') askStatus(job, 'live')
-    const have = (await db().todos.where('job_id').equals(job.id).filter((t) => !t.deleted_at).toArray()).map((t) => String(t.title))
-    await saveBatch(starterTodos(today(), have).map((t) => ({ tbl: 'todos' as const, id: newId(), patch: { ...t, job_id: job.id, show_in_diary: true, recurrence: 'none', created_by: user.id } })))
     await logActivity('job', job.id, 'quote_accepted', { rev: revLetter(est.rev), by: 'staff' }, user)
   }
 
@@ -832,7 +829,7 @@ function QuoteButton({ job, est, sections, lines, clauses }: { job: Job; est: Es
         company, job: { job_number: job.job_number, title: job.title, site_address: job.site_address },
         client: client ? { name: client.name, address: client.address } : null, estimate: est, sections, lines, clauses, detail, date: new Date(), logoPng: logo,
       })
-      const name = 'Quote ' + (job.job_number ?? 'draft') + (est.rev > 1 ? ' rev ' + revLetter(est.rev) : '') + '.pdf'
+      const name = 'Quote ' + ([job.job_number, job.title].filter(Boolean).join(' ') || 'draft') + (est.rev > 1 ? ' rev ' + revLetter(est.rev) : '') + '.pdf'
       const file = new File([bytes as BlobPart], name, { type: 'application/pdf' })
       if (navigator.canShare?.({ files: [file] })) {
         try { await navigator.share({ files: [file], title: name }); return } catch (e) { if ((e as Error).name === 'AbortError') return }

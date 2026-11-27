@@ -137,7 +137,7 @@ async function start(b: DocBase, title: string, sub: string, ref: string, extra:
 // ---------------------------------------------------------------- variation
 export interface VariationRow { description: string; qty: number; unit: string; rate: number; total: number; notes?: string | null; photos?: Blob[] }
 export async function buildVariationPdf(b: DocBase & { variation: Variation; rows: VariationRow[] }): Promise<Uint8Array> {
-  const d = await start(b, 'VARIATION', 'Instruction / confirmation of variation to the contract', `Ref ${b.job.job_number ?? ''} ${vref(b.variation.number)}`.trim(), [`Status: ${b.variation.status}`])
+  const d = await start(b, 'VARIATION', 'Instruction / confirmation of variation to the contract', `Ref ${[b.job.job_number, b.job.title].filter(Boolean).join(' ')} ${vref(b.variation.number)}`.trim(), [`Status: ${b.variation.status}`])
   d.setCols([{ label: 'Item', x: 44, align: 'l' }, { label: 'Description', x: 72, align: 'l' }, { label: 'Qty', x: 330, align: 'r' }, { label: 'Unit', x: 338, align: 'l' }, { label: 'Rate', x: 440, align: 'r' }, { label: 'Total', x: 555, align: 'r' }])
   for (let i = 0; i < b.rows.length; i++) {
     const l = b.rows[i]
@@ -154,7 +154,7 @@ export async function buildVariationPdf(b: DocBase & { variation: Variation; row
 // ---------------------------------------------------------------- application for payment
 export async function buildApplicationPdf(b: DocBase & { app: Application; lines: ApplicationLine[]; prev: Map<string, number>; v: Valuation; before: Valuation | null }): Promise<Uint8Array> {
   const { app, v } = b
-  const d = await start(b, 'APPLICATION FOR PAYMENT', `Application number ${app.number}${app.period_to ? ` - valuation to ${fmtDate(app.period_to)}` : ''}`, `Ref ${b.job.job_number ?? ''} App ${app.number}`.trim())
+  const d = await start(b, 'APPLICATION FOR PAYMENT', `Application number ${app.number}${app.period_to ? ` - valuation to ${fmtDate(app.period_to)}` : ''}`, `Ref ${[b.job.job_number, b.job.title].filter(Boolean).join(' ')} App ${app.number}`.trim())
   d.setCols([{ label: 'Description', x: 44, align: 'l' }, { label: 'Contract', x: 310, align: 'r' }, { label: '%', x: 340, align: 'r' }, { label: 'To date', x: 405, align: 'r' }, { label: 'Previous', x: 475, align: 'r' }, { label: 'This app.', x: 555, align: 'r' }])
   const groups = [...new Set(b.lines.map((l) => l.group_name))]
   for (const g of groups) {

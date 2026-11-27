@@ -95,7 +95,7 @@ export async function buildSowPdf(q: SowInput): Promise<Uint8Array> {
   y -= 28
 
   text('SCOPE OF WORKS', M, 22, bold)
-  right(`Ref ${q.job.job_number ?? 'Scope'}`, R, 10, bold)
+  right(`Ref ${[q.job.job_number, q.job.title].filter(Boolean).join(' ') || 'Scope'}`, R, 10, bold)
   y -= 14
   text('Prepared from a site walkaround', M, 10, font, grey)
   right(`Date ${fmtDate(q.date)}`, R, 9, font, grey)
@@ -171,7 +171,7 @@ export async function buildSowPdf(q: SowInput): Promise<Uint8Array> {
   }
 
   const pages = pdf.getPages()
-  pages.forEach((p, i) => p.drawText(clean(`${co.name}  -  Scope of works ${q.job.job_number ?? ''}  -  page ${i + 1} of ${pages.length}`), { x: M, y: 22, size: 8, font, color: grey }))
+  pages.forEach((p, i) => p.drawText(clean(`${co.name}  -  Scope of works ${[q.job.job_number, q.job.title].filter(Boolean).join(' ')}  -  page ${i + 1} of ${pages.length}`), { x: M, y: 22, size: 8, font, color: grey }))
   return pdf.save()
 }
 
@@ -193,7 +193,7 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
   }
   line(q.company.name, { bold: true, size: 14 })
   line('SCOPE OF WORKS', { bold: true, size: 16 })
-  line(`Ref ${q.job.job_number ?? ''}    Date ${fmtDate(q.date)}`, { grey: true })
+  line(`Ref ${[q.job.job_number, q.job.title].filter(Boolean).join(' ')}    Date ${fmtDate(q.date)}`, { grey: true })
   if (q.client) line(`For: ${q.client.name}${q.client.address ? ', ' + q.client.address.replace(/\n/g, ', ') : ''}`)
   line(`Works: ${q.job.title}${q.job.site_address ? ', ' + q.job.site_address : ''}`)
   ws.addRow([])

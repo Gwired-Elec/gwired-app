@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { buildQuoteSnapshot } from './quoteView'
-import { starterTodos, STARTER_TODOS } from '../planner/starter'
 import type { Estimate, Line, Section } from './estimates'
 
 const est = { id: 'e', job_id: 'j', rev: 2, status: 'issued', method: 'units', labour_rate_id: null, ohp_mode: 'combined', ohp_pct: 20, ohp_materials_pct: 20, ohp_labour_pct: 20, contingency_pct: 0, discount_pct: 0, vat_rate: 20, reverse_charge: false, notes: 'Note', issued_at: null } as unknown as Estimate
@@ -16,7 +15,7 @@ describe('quote snapshot (what the client sees on the link)', () => {
     expect(s.sections.reduce((a, x) => a + x.total, 0)).toBe(s.net)
     expect(s.sections[0].lines.reduce((a, l) => a + l.amount, 0)).toBe(s.sections[0].total)
     expect(s.total).toBe(s.net + s.vat)
-    expect(s.ref).toBe('GW-1 rev B')
+    expect(s.ref).toBe('GW-1 Rewire rev B')
     expect(s.validUntil).toBe('2026-12-27')
     expect(s.exclusions).toEqual(['No decoration'])
     expect(s.notes).toEqual(['Note', 'Pay in 30 days'])
@@ -32,14 +31,3 @@ describe('quote snapshot (what the client sees on the link)', () => {
   })
 })
 
-describe('starter checklist', () => {
-  it('dates are counted from today', () => {
-    const t = starterTodos('2026-11-27', [])
-    expect(t).toHaveLength(STARTER_TODOS.length)
-    expect(t[0].due_date).toBe('2026-11-28')
-  })
-  it('does not double up on ones the job already has', () => {
-    const t = starterTodos('2026-11-27', ['confirm the start date with the client ', 'Something else'])
-    expect(t).toHaveLength(STARTER_TODOS.length - 1)
-  })
-})

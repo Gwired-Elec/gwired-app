@@ -70,7 +70,7 @@ export default function SowExport({ job }: { job: Job }) {
         company, job: { job_number: job.job_number, title: job.title, site_address: job.site_address },
         client: client ? { name: client.name, address: client.address } : null, areas: sowAreas, showRates, date: new Date(), logoPng: logo,
       }
-      const stem = 'Scope of works ' + (job.job_number ?? 'draft')
+      const stem = 'Scope of works ' + ([job.job_number, job.title].filter(Boolean).join(' ') || 'draft')
       if (kind === 'pdf') await deliver(new File([(await buildSowPdf(input)) as BlobPart], stem + '.pdf', { type: 'application/pdf' }))
       else await deliver(new File([await buildSowXlsx(input)], stem + '.xlsx', { type: XLSX }))
       setSkipped(missing)

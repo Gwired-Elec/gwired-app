@@ -123,7 +123,7 @@ function AppEditor({ job, app, lines, prevLines, v, before, edit, last, onGone }
     try {
       const client = clients?.find((c) => c.id === job.client_id) ?? null
       const base = await docBase(job, client ? { name: client.name, address: client.address } : null)
-      await deliverPdf(await buildApplicationPdf({ ...base, app, lines, prev, v, before }), `Application ${app.number} ${job.job_number ?? ''}.pdf`.replace(/\s+/g, ' '))
+      await deliverPdf(await buildApplicationPdf({ ...base, app, lines, prev, v, before }), `Application ${app.number} ${[job.job_number, job.title].filter(Boolean).join(' ')}.pdf`.replace(/\s+/g, ' '))
     } catch (e) { setErr((e as Error).message || 'Could not make the PDF.') } finally { setBusy(false) }
   }
   const paid = app.status === 'paid'
@@ -178,7 +178,7 @@ function AppEditor({ job, app, lines, prevLines, v, before, edit, last, onGone }
 
       <XeroPanel ready={app.status !== 'draft'} send={{
         kind: 'application', id: app.id, client_id: job.client_id, net_pence: v.thisNet, vat_rate: app.vat_rate, reverse_charge: app.reverse_charge,
-        date: app.app_date, due_date: addDaysTo(app.app_date, 30), reference: `${job.job_number ?? ''} Application ${app.number}`.trim(),
+        date: app.app_date, due_date: addDaysTo(app.app_date, 30), reference: `${[job.job_number, job.title].filter(Boolean).join(' ')} Application ${app.number}`.trim(),
         description: `Application for payment ${app.number}${app.period_to ? ', valuation to ' + fmtDate(app.period_to) : ''} - ${job.title}${app.retention_pct > 0 ? ` (after ${app.retention_pct}% retention)` : ''}`,
       }} />
       <label htmlFor={'an' + app.id}>Notes (printed on the application)</label>

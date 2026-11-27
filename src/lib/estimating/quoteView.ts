@@ -45,7 +45,7 @@ export function buildQuoteSnapshot(q: Omit<QuoteInput, 'logoPng'>): QuoteSnapsho
   return {
     v: 1,
     company: { name: co.name, address: co.address ?? '', phone: co.phone ?? '', email: co.email ?? '', vat_number: co.vat_number ?? '', company_number: co.company_number ?? '' },
-    ref: `${q.job.job_number ?? 'Quote'}${q.estimate.rev > 1 ? ` rev ${revLetter(q.estimate.rev)}` : ''}`,
+    ref: `${[q.job.job_number, q.job.title].filter(Boolean).join(' ') || 'Quote'}${q.estimate.rev > 1 ? ` rev ${revLetter(q.estimate.rev)}` : ''}`,
     date: iso(q.date), validUntil: iso(valid),
     client: q.client ? { name: q.client.name, address: q.client.address ?? '' } : null,
     job: { title: q.job.title, site_address: q.job.site_address ?? '' },

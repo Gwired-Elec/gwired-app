@@ -38,7 +38,7 @@ export default function ClientLink({ job, est, sections, lines, clauses, canEdit
   }
   async function share(token: string) {
     const url = linkUrl(token)
-    const text = `Your quotation ${job.job_number ?? ''}${est.rev > 1 ? ' rev ' + revLetter(est.rev) : ''} from ${cachedCompany().name}`
+    const text = `Your quotation ${[job.job_number, job.title].filter(Boolean).join(' ')}${est.rev > 1 ? ' rev ' + revLetter(est.rev) : ''} from ${cachedCompany().name}`
     if (navigator.share) { try { await navigator.share({ title: text, text, url }); return } catch (e) { if ((e as Error).name === 'AbortError') return } }
     try { await navigator.clipboard.writeText(url); setCopied(token); setTimeout(() => setCopied(''), 3000) } catch { setMsg(url) }
   }

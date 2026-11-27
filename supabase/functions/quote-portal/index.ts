@@ -2,7 +2,7 @@
 //   GET  .../functions/v1/quote-portal?t=<token>            -> the quote as issued (frozen copy), its state, and a PDF download address
 //   POST .../functions/v1/quote-portal  {t, action:"accept", name}  -> the client accepts the quote
 // No sign-in: the long random token in the address is the key. Only prices are ever returned (the frozen copy never holds costs).
-// Accepting marks the estimate accepted, moves the job to Live, adds a starter checklist to the job's to-dos and records who accepted.
+// Accepting marks the estimate accepted, moves the job to Live, and records who accepted.
 // Deploy with "Verify JWT" OFF.
 import { createClient } from "npm:@supabase/supabase-js@2.119.2";
 
@@ -13,17 +13,6 @@ const cors = {
 };
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" } });
-
-// the same starter checklist the app adds when staff accept a quote (src/lib/planner/starter.ts): keep the two in step
-const STARTER: [string, number][] = [
-  ["Confirm the start date with the client", 1],
-  ["Send order acknowledgement and payment terms", 1],
-  ["Order materials (see the Costs tab: materials still needed)", 2],
-  ["Book the job into the diary", 2],
-  ["Raise the deposit invoice or first application for payment", 3],
-  ["Prepare RAMS and site induction", 5],
-];
-const addDays = (n: number) => { const d = new Date(); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
@@ -83,11 +72,6 @@ Deno.serve(async (req) => {
       { entity: "job", entity_id: job.id, action: "status", detail: { from: job.status, to: "live", by: "client", quote: link.snapshot?.ref }, user_name: `${name} (client, online)` },
       { entity: "job", entity_id: job.id, action: "quote_accepted", detail: { by: "client", name, quote: link.snapshot?.ref }, user_name: `${name} (client, online)` },
     ]);
-    const rows = [
-      { title: `Quote ${link.snapshot?.ref ?? ""} accepted online by ${name}: phone to say thank you and confirm`, due_date: addDays(0) },
-      ...STARTER.map(([title, d]) => ({ title, due_date: addDays(d) })),
-    ].map((r) => ({ ...r, job_id: job.id, show_in_diary: true }));
-    await sb.from("todos").insert(rows);
   }
   return json({ state: "accepted", accepted: { name, at: nowIso } });
 });

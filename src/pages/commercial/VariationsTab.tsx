@@ -107,7 +107,7 @@ function VarEditor({ job, v, total, edit, user, estimate, sections, lines, make,
         for (const p of photos.filter((x) => x.line_id === l.id).sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0))) { const b = await getPhotoBlob(p); if (b) blobs.push(b) }
         rows.push({ description: l.description, qty: l.qty, unit: l.unit, rate: l.qty ? Math.round(t / l.qty) : t, total: t, notes: l.notes, photos: blobs })
       }
-      await deliverPdf(await buildVariationPdf({ ...base, variation: v, rows }), `Variation ${vref(v.number)} ${job.job_number ?? ''}.pdf`.replace(/\s+/g, ' '))
+      await deliverPdf(await buildVariationPdf({ ...base, variation: v, rows }), `Variation ${vref(v.number)} ${[job.job_number, job.title].filter(Boolean).join(' ')}.pdf`.replace(/\s+/g, ' '))
     } catch (e) { setErr((e as Error).message || 'Could not make the PDF.') } finally { setBusy(false) }
   }
   return (

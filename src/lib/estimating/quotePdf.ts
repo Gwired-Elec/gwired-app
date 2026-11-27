@@ -109,7 +109,7 @@ export async function buildQuotePdf(q: QuoteInput): Promise<Uint8Array> {
 
   // ---- title, reference and dates
   text('QUOTATION', M, 22, bold)
-  const ref = `${q.job.job_number ?? 'Quote'}${q.estimate.rev > 1 ? ` rev ${revLetter(q.estimate.rev)}` : ''}`
+  const ref = `${[q.job.job_number, q.job.title].filter(Boolean).join(' ') || 'Quote'}${q.estimate.rev > 1 ? ` rev ${revLetter(q.estimate.rev)}` : ''}`
   right(`Ref ${ref}`, R, 10, bold)
   y -= 14
   text('Scope of works and priced schedule', M, 10, font, grey)
