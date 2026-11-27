@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import EstimateTab from './estimating/EstimateTab'
 import WalkaroundTab from './walkaround/WalkaroundTab'
+import VariationsTab from './commercial/VariationsTab'
+import ApplicationsTab from './commercial/ApplicationsTab'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../lib/auth'
@@ -11,7 +13,7 @@ import { diff, logActivity, save } from '../lib/sync/store'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
 const TABS = ['Overview', 'Walkaround', 'Estimate', 'Variations', 'Applications', 'Costs', 'To-dos', 'Diary', 'Files', 'Activity'] as const
-const PHASE: Record<string, string> = { Variations: 'Phase 5', Applications: 'Phase 5', Costs: 'Phase 8', 'To-dos': 'Phase 8', Diary: 'Phase 8', Files: 'a later phase' }
+const PHASE: Record<string, string> = { Costs: 'Phase 8', 'To-dos': 'Phase 8', Diary: 'Phase 8', Files: 'a later phase' }
 
 export default function JobDetail() {
   const { id = '' } = useParams()
@@ -57,7 +59,9 @@ export default function JobDetail() {
       {tab === 'Activity' && <Activity jobId={job.id} />}
       {tab === 'Estimate' && <div className="est"><EstimateTab job={job} user={user} /></div>}
       {tab === 'Walkaround' && <WalkaroundTab job={job} />}
-      {tab !== 'Overview' && tab !== 'Activity' && tab !== 'Estimate' && tab !== 'Walkaround' && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
+      {tab === 'Variations' && <div className="est"><VariationsTab job={job} /></div>}
+      {tab === 'Applications' && <div className="est"><ApplicationsTab job={job} /></div>}
+      {!['Overview', 'Activity', 'Estimate', 'Walkaround', 'Variations', 'Applications'].includes(tab) && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
       {dialog}
     </>
   )

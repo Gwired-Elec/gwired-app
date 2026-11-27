@@ -3,7 +3,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
-  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements', 'walkaround_photos'] as const
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements', 'walkaround_photos', 'variations', 'variation_lines', 'applications', 'application_lines', 'invoices'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -34,6 +34,11 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   walkaround_areas: [],
   walkaround_elements: [],
   walkaround_photos: [],
+  variations: [],
+  variation_lines: [],
+  applications: [],
+  application_lines: [],
+  invoices: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -63,6 +68,11 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
   walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
   walkaround_photos: ['area_id', 'element_id', 'path', 'original_path', 'caption', 'sort', 'deleted_at'],
+  variations: ['job_id', 'number', 'title', 'description', 'status', 'var_date', 'deleted_at'],
+  variation_lines: ['variation_id', 'sort', 'description', 'qty', 'unit', 'rate_pence', 'deleted_at'],
+  applications: ['job_id', 'number', 'status', 'app_date', 'period_to', 'retention_pct', 'retention_release_pence', 'cis_on', 'cis_rate', 'cis_labour_pct', 'reverse_charge', 'vat_rate', 'notes', 'paid_pence', 'paid_date', 'deleted_at'],
+  application_lines: ['application_id', 'sort', 'line_key', 'group_name', 'description', 'contract_pence', 'to_date_pence', 'deleted_at'],
+  invoices: ['job_id', 'number', 'kind', 'description', 'net_pence', 'vat_rate', 'reverse_charge', 'inv_date', 'due_date', 'status', 'paid_date', 'notes', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -132,6 +142,11 @@ export class GwDb extends Dexie {
   walkaround_areas!: Table<Row, string>
   walkaround_elements!: Table<Row, string>
   walkaround_photos!: Table<Row, string>
+  variations!: Table<Row, string>
+  variation_lines!: Table<Row, string>
+  applications!: Table<Row, string>
+  application_lines!: Table<Row, string>
+  invoices!: Table<Row, string>
   photo_files!: Table<PhotoFile, string> // the pictures themselves, kept on this device (not synced as rows)
 
   constructor(userId: string) {
@@ -182,6 +197,14 @@ export class GwDb extends Dexie {
     this.version(6).stores({
       walkaround_photos: 'id, area_id',
       photo_files: 'id',
+    })
+    // version 7 (Phase 5): variations, applications for payment, invoices
+    this.version(7).stores({
+      variations: 'id, job_id',
+      variation_lines: 'id, variation_id',
+      applications: 'id, job_id',
+      application_lines: 'id, application_id',
+      invoices: 'id, job_id',
     })
   }
 }
