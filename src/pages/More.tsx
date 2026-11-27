@@ -52,6 +52,7 @@ export default function More() {
       {can('users') && (
         <Link className="card linkcard" to="/more/users"><strong>Users</strong><span className="muted"> Add staff and choose what they can see</span></Link>
       )}
+      <Link className="card linkcard" to="/more/help"><strong>Help</strong><span className="muted"> How everything works, and how to reconnect it if something fails</span></Link>
       <div className="card">
         <p className="muted">Clients, materials, settings and the other sections will be listed here as they are built.</p>
       </div>

@@ -13,6 +13,7 @@ import More from './pages/More'
 import Users from './pages/Users'
 import CompanyDetails from './pages/CompanyDetails'
 import Security from './pages/Security'
+import Help from './pages/Help'
 import LockScreen from './components/LockScreen'
 import { useLock } from './lib/lock'
 import DbGate from './components/DbGate'
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="more/xero" element={<XeroSettings />} />
         <Route path="more/company" element={<CompanyDetails />} />
         <Route path="more/security" element={<Security />} />
+        <Route path="more/help" element={<Help />} />
         <Route path="more/sync" element={<SyncLog />} />
         <Route path="more/pipeline" element={<PipelineSettings />} />
         <Route path="more/estimating" element={<EstHub />} />
