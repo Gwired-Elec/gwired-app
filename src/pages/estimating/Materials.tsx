@@ -6,7 +6,7 @@ import { CATEGORIES, useAllPrices, useEstSettings, useMaterials, useSuppliers, t
 import { bestPrice, cheapestPrice, costPerUnit, isStale, netCost, sellPerUnit } from '../../lib/estimating/pricing'
 import PriceAge from '../../components/PriceAge'
 import { formatGBP } from '../../lib/money'
-import { newId, save } from '../../lib/sync/store'
+import { newId, save, saveBatch } from '../../lib/sync/store'
 
 // pence per unit can be fractional (23.4p a metre)
 export const fmtUnit = (p: number) => (p >= 100 ? formatGBP(Math.round(p)) : `${Number(p.toFixed(2))}p`)
@@ -102,7 +102,8 @@ export function MaterialList() {
 
 export function MaterialDetail() {
   const { id = '' } = useParams()
-  const { can } = useAuth()
+  const { can, profile } = useAuth()
+  const nav = useNavigate()
   const materials = useMaterials()
   const allPrices = useAllPrices()
   const suppliers = useSuppliers()
@@ -173,6 +174,19 @@ export function MaterialDetail() {
           )
         }}
       />
+
+      {profile?.preset === 'owner' && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <h2>Delete this material</h2>
+          <p className="muted small">Takes it out of the materials list and its supplier prices with it. Estimates that already use it keep their lines and prices as they are. Only owners can do this.</p>
+          <button className="btn" onClick={async () => {
+            if (!confirm('Delete ' + material.description + ' and its supplier prices?')) return
+            const now = new Date().toISOString()
+            await saveBatch([...prices.map((p) => ({ tbl: 'material_prices' as const, id: p.id, patch: { deleted_at: now } })), { tbl: 'materials' as const, id: material.id, patch: { deleted_at: now } }])
+            nav('/more/estimating/materials')
+          }}>Delete material</button>
+        </div>
+      )}
     </>
   )
 }
