@@ -8,6 +8,7 @@
 // on a timer while it is open, shortly after any change, and on the "Sync now" button.
 import { useSyncExternalStore } from 'react'
 import { supabase } from '../supabase'
+import { uploadPendingPhotos } from '../walkaround/photoStore'
 import { db, dbIsOpen, SYNC_TABLES, type OutboxOp, type Row, type SyncTable } from './db'
 
 export type SyncPhase = 'synced' | 'syncing' | 'offline' | 'error'
@@ -131,6 +132,7 @@ export function syncNow(): Promise<void> {
         return set({ phase: 'offline' })
       }
       await pull()
+      await uploadPendingPhotos().catch(() => {}) // pictures waiting to go up (never blocks the sync)
       await refreshCounts()
       set({ phase: 'synced', lastSync: new Date().toISOString(), error: null })
       try {

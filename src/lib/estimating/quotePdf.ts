@@ -37,10 +37,10 @@ export function spreadToNet(sells: number[], net: number): number[] {
 }
 
 // the standard PDF fonts only cover Western characters
-const clean = (s: string) =>
+export const clean = (s: string) =>
   s.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—−]/g, '-').replace(/…/g, '...').replace(/ /g, ' ').replace(/[^\x20-\x7e£©°±×÷½¼¾\n]/g, '?')
 
-function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
+export function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
   const out: string[] = []
   for (const para of clean(text).split('\n')) {
     let line = ''

@@ -3,7 +3,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
-  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements'] as const
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements', 'walkaround_photos'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -33,6 +33,7 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   walkarounds: [],
   walkaround_areas: [],
   walkaround_elements: [],
+  walkaround_photos: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -61,6 +62,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   walkarounds: ['job_id', 'title', 'visit_date', 'notes', 'deleted_at'],
   walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
   walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
+  walkaround_photos: ['area_id', 'path', 'caption', 'sort', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -97,6 +99,9 @@ export interface Row {
   [k: string]: unknown
 }
 
+// a picture held on this device: waiting to upload (uploaded = 0), or already in the cloud and cached here for offline (1)
+export interface PhotoFile { id: string; blob: Blob; uploaded: number }
+
 export class GwDb extends Dexie {
   outbox!: Table<OutboxOp, number>
   meta!: Table<{ key: string; value: unknown }, string>
@@ -126,6 +131,8 @@ export class GwDb extends Dexie {
   walkarounds!: Table<Row, string>
   walkaround_areas!: Table<Row, string>
   walkaround_elements!: Table<Row, string>
+  walkaround_photos!: Table<Row, string>
+  photo_files!: Table<PhotoFile, string> // the pictures themselves, kept on this device (not synced as rows)
 
   constructor(userId: string) {
     super('gwired-' + userId)
@@ -170,6 +177,11 @@ export class GwDb extends Dexie {
       walkarounds: 'id, job_id',
       walkaround_areas: 'id, walkaround_id',
       walkaround_elements: 'id, area_id',
+    })
+    // version 6 (Phase 3): walkaround photos
+    this.version(6).stores({
+      walkaround_photos: 'id, area_id',
+      photo_files: 'id',
     })
   }
 }

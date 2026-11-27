@@ -184,3 +184,10 @@ table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2);
 .clause-group h3 { margin: 0 0 8px; }
 .clause-pick { padding: 6px 0 10px; border-top: 1px solid var(--line, #2a2a2e); }
 .clause-pick textarea { margin-top: 4px; }
+
+/* walkaround photos */
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.photo { display: flex; flex-direction: column; gap: 4px; position: relative; }
+.photo img, .photo .ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: var(--grey-1, #1b1b1d); }
+.photo .ph { display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; font-size: 0.8rem; opacity: .7; }
+.photo .tag { position: absolute; top: 6px; left: 6px; }

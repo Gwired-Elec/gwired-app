@@ -1,11 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../../lib/auth'
 import type { Job } from '../../lib/jobs'
 import { db, type Row } from '../../lib/sync/db'
 import { newId, remove, save } from '../../lib/sync/store'
+import { keepLocal, photoWaiting, shrinkImage, uploadPendingPhotos, usePhotoUrl } from '../../lib/walkaround/photoStore'
+import SowExport from './SowExport'
 
 export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
+export interface Photo extends Row { area_id: string; path: string; caption: string | null; sort: number }
 export interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
 
 const alive = (r: Row) => !r.deleted_at
@@ -20,7 +23,8 @@ export function useWalkaround(jobId: string) {
     const areas = walk ? ((await db().walkaround_areas.where('walkaround_id').equals(walk.id).filter(alive).toArray()) as Area[]).map((a) => ({ ...a, sort: Number(a.sort ?? 0) })).sort((a, b) => a.sort - b.sort) : []
     const ids = areas.map((a) => a.id)
     const elements = ids.length ? ((await db().walkaround_elements.where('area_id').anyOf(ids).filter(alive).toArray()) as Element[]).map((e) => ({ ...e, qty: Number(e.qty ?? 1), sort: Number(e.sort ?? 0) })).sort((a, b) => a.sort - b.sort) : []
-    return { walk, areas, elements }
+    const photos = ids.length ? ((await db().walkaround_photos.where('area_id').anyOf(ids).filter(alive).toArray()) as Photo[]).map((p) => ({ ...p, sort: Number(p.sort ?? 0) })).sort((a, b) => a.sort - b.sort) : []
+    return { walk, areas, elements, photos }
   }, [jobId])
 }
 
@@ -31,7 +35,7 @@ export default function WalkaroundTab({ job }: { job: Job }) {
   const edit = can('walkarounds')
   if (!edit) return <div className="card"><p className="muted">You don't have permission to see site walkarounds.</p></div>
   if (!data) return <p className="muted">Loading…</p>
-  const { walk, areas, elements } = data
+  const { walk, areas, elements, photos } = data
 
   async function addArea(n: string) {
     const nm = n.trim()
@@ -47,7 +51,7 @@ export default function WalkaroundTab({ job }: { job: Job }) {
     <>
       <div className="card">
         <h2>Site walkaround</h2>
-        <p className="muted small">Add each area as you walk the site. Write notes first, then list what is needed there with a quantity. It saves on this device straight away and syncs when there is signal. Photos arrive in the next update.</p>
+        <p className="muted small">Add each area as you walk the site. Write notes first, then list what is needed there with a quantity. It saves on this device straight away and syncs when there is signal. Add photos with the camera button. They are kept on the phone and uploaded when there is signal.</p>
         <div className="chips" role="group" aria-label="Quick add an area">
           {COMMON.filter((c) => !areas.some((a) => a.name.toLowerCase() === c.toLowerCase())).map((c) => <button key={c} className="chip" onClick={() => addArea(c)}>+ {c}</button>)}
         </div>
@@ -58,12 +62,34 @@ export default function WalkaroundTab({ job }: { job: Job }) {
         </form>
       </div>
       {!areas.length && <div className="card"><p className="muted">No areas yet. Tap one above to start.</p></div>}
-      {areas.map((a) => <AreaCard key={a.id} area={a} elements={elements.filter((e) => e.area_id === a.id)} />)}
+      {areas.map((a) => <AreaCard key={a.id} area={a} jobId={job.id} elements={elements.filter((e) => e.area_id === a.id)} photos={photos.filter((p) => p.area_id === a.id)} />)}
+      {areas.length > 0 && <SowExport job={job} areas={areas} elements={elements} photos={photos} />}
     </>
   )
 }
 
-function AreaCard({ area: a, elements }: { area: Area; elements: Element[] }) {
+function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: string; elements: Element[]; photos: Photo[] }) {
+  const [busy, setBusy] = useState(false)
+  const [photoErr, setPhotoErr] = useState('')
+  async function addPhotos(files: FileList | null) {
+    if (!files?.length) return
+    setBusy(true)
+    setPhotoErr('')
+    try {
+      let sort = (photos.at(-1)?.sort ?? 0) + 10
+      for (const file of Array.from(files)) {
+        const blob = await shrinkImage(file)
+        const id = newId()
+        await keepLocal(id, blob)
+        await save('walkaround_photos', id, { area_id: a.id, path: `${jobId}/${id}.jpg`, sort })
+        sort += 10
+      }
+      void uploadPendingPhotos()
+    } catch (e) {
+      setPhotoErr(e instanceof Error ? e.message : 'A photo could not be added.')
+    }
+    setBusy(false)
+  }
   const [desc, setDesc] = useState('')
   const [qty, setQty] = useState('1')
   const [unit, setUnit] = useState('nr')
@@ -83,6 +109,15 @@ function AreaCard({ area: a, elements }: { area: Area; elements: Element[] }) {
       </div>
       <label htmlFor={'n' + a.id}>Notes</label>
       <textarea id={'n' + a.id} key={a.notes ?? ''} rows={3} defaultValue={a.notes ?? ''} placeholder="What you see, what the client wants, access, existing condition…" onBlur={(e) => e.target.value !== (a.notes ?? '') && save('walkaround_areas', a.id, { notes: e.target.value.trim() || null })} />
+
+      <h3 style={{ margin: '14px 0 4px' }}>Photos</h3>
+      {!photos.length && <p className="muted small">No photos yet.</p>}
+      <div className="photos">{photos.map((p) => <PhotoTile key={p.id} photo={p} />)}</div>
+      <label className="btn" style={{ marginTop: 8, opacity: busy ? 0.6 : 1 }}>
+        {busy ? 'Adding…' : '📷 Add photos'}
+        <input type="file" accept="image/*" multiple disabled={busy} style={{ display: 'none' }} onChange={(e) => { void addPhotos(e.target.files); e.target.value = '' }} />
+      </label>
+      {photoErr && <p className="err" role="alert">{photoErr}</p>}
 
       <h3 style={{ margin: '14px 0 4px' }}>What is needed here</h3>
       {!elements.length && <p className="muted small">Nothing listed yet.</p>}
@@ -112,6 +147,26 @@ function AreaCard({ area: a, elements }: { area: Area; elements: Element[] }) {
         <button className="btn" disabled={!desc.trim()}>+ Add item</button>
       </form>
       <datalist id="wunits">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
+    </div>
+  )
+}
+
+function PhotoTile({ photo: p }: { photo: Photo }) {
+  const url = usePhotoUrl(p)
+  const [waiting, setWaiting] = useState(false)
+  useEffect(() => {
+    let live = true
+    const check = () => void photoWaiting(p.id).then((w) => live && setWaiting(w))
+    check()
+    const t = setInterval(check, 8000)
+    return () => { live = false; clearInterval(t) }
+  }, [p.id])
+  return (
+    <div className="photo">
+      {url ? <img src={url} alt={p.caption || 'Site photo'} /> : <div className="ph">{url === null ? 'Not on this device yet. Connect to load it.' : 'Loading…'}</div>}
+      {waiting && <span className="tag">waiting to upload</span>}
+      <input key={p.caption ?? ''} type="text" defaultValue={p.caption ?? ''} placeholder="Caption (optional)" aria-label="Photo caption" onBlur={(e) => e.target.value !== (p.caption ?? '') && save('walkaround_photos', p.id, { caption: e.target.value.trim() || null })} />
+      <button className="link small" onClick={() => confirm('Remove this photo?') && remove('walkaround_photos', p.id)}>Remove photo</button>
     </div>
   )
 }

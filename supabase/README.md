@@ -16,4 +16,5 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 011_labour_day_night.sql | labour rates: cost and charged out per 8-hour day, night shift price, no overtime | not yet |
 | 012_clauses.sql | standard exclusions and assumptions library, ticked onto each estimate | not yet |
 | 013_walkaround.sql | site walkaround: areas, notes and items per job | not yet |
+| 014_walkaround_photos.sql | walkaround photos: record table and the private photo storage | not yet |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | not yet |
