@@ -4,6 +4,7 @@ import WalkaroundTab from './walkaround/WalkaroundTab'
 import VariationsTab from './commercial/VariationsTab'
 import ApplicationsTab from './commercial/ApplicationsTab'
 import { TodoPanel } from './planner/Todos'
+import FilesTab from './files/FilesTab'
 import { DiaryPanel } from './planner/Diary'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -15,7 +16,7 @@ import { diff, logActivity, save } from '../lib/sync/store'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
 const TABS = ['Overview', 'Walkaround', 'Estimate', 'Variations', 'Applications', 'Costs', 'To-dos', 'Diary', 'Files', 'Activity'] as const
-const PHASE: Record<string, string> = { Costs: 'a later phase', Files: 'a later phase' }
+const PHASE: Record<string, string> = { Costs: 'a later phase' }
 
 export default function JobDetail() {
   const { id = '' } = useParams()
@@ -63,9 +64,10 @@ export default function JobDetail() {
       {tab === 'Walkaround' && <WalkaroundTab job={job} />}
       {tab === 'Variations' && <div className="est"><VariationsTab job={job} /></div>}
       {tab === 'Applications' && <div className="est"><ApplicationsTab job={job} /></div>}
+      {tab === 'Files' && <FilesTab job={job} />}
       {tab === 'To-dos' && (can('todos') ? <TodoPanel jobId={job.id} /> : <div className="card"><p className="muted">You do not have access to to-dos.</p></div>)}
       {tab === 'Diary' && (can('diary') ? <DiaryPanel jobId={job.id} /> : <div className="card"><p className="muted">You do not have access to the diary.</p></div>)}
-      {!['Overview', 'Activity', 'Estimate', 'Walkaround', 'Variations', 'Applications', 'To-dos', 'Diary'].includes(tab) && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
+      {!['Overview', 'Activity', 'Estimate', 'Walkaround', 'Variations', 'Applications', 'To-dos', 'Diary', 'Files'].includes(tab) && <div className="card"><p className="muted">{tab} arrives in {PHASE[tab]}.</p></div>}
       {dialog}
     </>
   )

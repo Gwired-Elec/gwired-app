@@ -3,7 +3,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
-  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements', 'walkaround_photos', 'variations', 'variation_lines', 'applications', 'application_lines', 'invoices', 'todos', 'calendar_events', 'xero_invoice_links'] as const
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements', 'walkaround_photos', 'variations', 'variation_lines', 'applications', 'application_lines', 'invoices', 'todos', 'calendar_events', 'xero_invoice_links', 'job_files'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -42,6 +42,7 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   todos: [],
   calendar_events: [],
   xero_invoice_links: [],
+  job_files: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -79,6 +80,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   todos: ['title', 'notes', 'job_id', 'assigned_to', 'due_date', 'recurrence', 'show_in_diary', 'done_at', 'created_by', 'deleted_at'],
   calendar_events: ['title', 'notes', 'location', 'job_id', 'assigned_to', 'event_date', 'end_date', 'all_day', 'start_time', 'end_time', 'created_by', 'deleted_at'],
   xero_invoice_links: [], // written only by the xero function; the app just reads it
+  job_files: ['job_id', 'name', 'category', 'path', 'size_bytes', 'mime', 'notes', 'created_by', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -156,6 +158,7 @@ export class GwDb extends Dexie {
   todos!: Table<Row, string>
   calendar_events!: Table<Row, string>
   xero_invoice_links!: Table<Row, string>
+  job_files!: Table<Row, string>
   photo_files!: Table<PhotoFile, string> // the pictures themselves, kept on this device (not synced as rows)
 
   constructor(userId: string) {
@@ -227,6 +230,10 @@ export class GwDb extends Dexie {
     // version 10 (Phase 6): what Xero says about each invoice sent
     this.version(10).stores({
       xero_invoice_links: 'id, source_id',
+    })
+    // version 11: files on a job
+    this.version(11).stores({
+      job_files: 'id, job_id',
     })
   }
 }
