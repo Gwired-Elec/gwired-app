@@ -22,6 +22,7 @@ export interface Estimate extends Row {
   issued_at: string | null
 }
 export interface Section extends Row { estimate_id: string; name: string; sort: number }
+export interface EstClause extends Row { estimate_id: string; library_id: string | null; kind: 'exclusion' | 'assumption'; title: string; body: string; sort: number }
 export interface Line extends Row, LineMaths {
   estimate_id: string
   section_id: string | null
@@ -58,7 +59,8 @@ export function useJobEstimates(jobId: string) {
     const ids = estimates.map((e) => e.id)
     const sections = ids.length ? ((await db().estimate_sections.where('estimate_id').anyOf(ids).filter(alive).toArray()) as unknown as Section[]).map((s) => ({ ...s, sort: num(s.sort) })).sort((a, b) => a.sort - b.sort) : []
     const lines = ids.length ? ((await db().estimate_lines.where('estimate_id').anyOf(ids).filter(alive).toArray()) as unknown as Line[]).map(fixLine).sort((a, b) => a.sort - b.sort) : []
-    return { estimates, sections, lines }
+    const clauses = ids.length ? ((await db().estimate_clauses.where('estimate_id').anyOf(ids).filter(alive).toArray()) as unknown as EstClause[]).map((c) => ({ ...c, sort: num(c.sort) })).sort((a, b) => a.sort - b.sort) : []
+    return { estimates, sections, lines, clauses }
   }, [jobId])
 }
 

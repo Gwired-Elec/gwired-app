@@ -42,6 +42,7 @@ export interface PointRate extends Row { name: string; category: string | null; 
 export interface Assembly extends Row { code: string | null; name: string; category: string | null; description: string | null; extra_labour_hours: number; active: boolean }
 export interface AssemblyItem extends Row { assembly_id: string; material_id: string; qty: number; sort: number }
 export interface Prelim extends Row { name: string; kind: 'fixed' | 'percent'; amount_pence: number; percent: number; active: boolean }
+export interface LibraryClause extends Row { kind: 'exclusion' | 'assumption'; title: string; body: string; sort: number; default_on: boolean; active: boolean }
 export interface EstSettings extends Row {
   default_markup_pct: number
   oh_pct: number
@@ -92,3 +93,5 @@ export const useAssemblies = () => useLiveQuery(() => cast<Assembly[]>(db().asse
 export const useAssemblyItems = (assemblyId: string) => useLiveQuery(() => cast<AssemblyItem[]>(db().assembly_items.where('assembly_id').equals(assemblyId).filter(alive).toArray().then((a) => a.sort((x, y) => Number(x.sort) - Number(y.sort)))), [assemblyId])
 export const usePrelims = () => useLiveQuery(() => cast<Prelim[]>(db().prelim_items.filter(alive).toArray()), [])
 export const useEstSettings = (): EstSettings => useLiveQuery(async () => ({ ...DEFAULT_SETTINGS, ...(((await db().estimating_settings.get(SETTINGS_ID)) as EstSettings | undefined) ?? {}) }), [], DEFAULT_SETTINGS)
+
+export const useClauseLibrary = () => useLiveQuery(() => cast<LibraryClause[]>(db().clause_library.filter(alive).toArray().then((a) => a.map((c) => ({ ...c, sort: Number(c.sort ?? 0) })).sort((x, y) => x.sort - y.sort))), [])

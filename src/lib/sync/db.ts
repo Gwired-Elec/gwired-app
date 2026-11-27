@@ -3,7 +3,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
-  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines'] as const
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -28,6 +28,8 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   estimates: [],
   estimate_sections: [],
   estimate_lines: [],
+  clause_library: [],
+  estimate_clauses: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -51,6 +53,8 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   estimates: ['job_id', 'rev', 'name', 'status', 'method', 'labour_rate_id', 'oh_pct', 'profit_pct', 'ohp_mode', 'ohp_pct', 'ohp_materials_pct', 'ohp_labour_pct', 'contingency_pct', 'discount_pct', 'vat_rate', 'reverse_charge', 'notes', 'issued_at', 'deleted_at'],
   estimate_sections: ['estimate_id', 'name', 'sort', 'deleted_at'],
   estimate_lines: ['estimate_id', 'section_id', 'sort', 'kind', 'description', 'qty', 'unit', 'material_id', 'point_rate_id', 'labour_rate_id', 'unit_cost', 'unit_sell', 'hours_per_unit', 'labour_cost_hr_pence', 'labour_charge_hr_pence', 'sell_override', 'markup_pct', 'price_date', 'price_source', 'notes', 'deleted_at'],
+  clause_library: ['kind', 'title', 'body', 'sort', 'default_on', 'active', 'deleted_at'],
+  estimate_clauses: ['estimate_id', 'library_id', 'kind', 'title', 'body', 'sort', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -111,6 +115,8 @@ export class GwDb extends Dexie {
   estimates!: Table<Row, string>
   estimate_sections!: Table<Row, string>
   estimate_lines!: Table<Row, string>
+  clause_library!: Table<Row, string>
+  estimate_clauses!: Table<Row, string>
 
   constructor(userId: string) {
     super('gwired-' + userId)
@@ -144,6 +150,11 @@ export class GwDb extends Dexie {
       estimates: 'id, job_id',
       estimate_sections: 'id, estimate_id',
       estimate_lines: 'id, estimate_id, section_id',
+    })
+    // version 4 (Phase 3): standard exclusions and assumptions
+    this.version(4).stores({
+      clause_library: 'id, kind, sort',
+      estimate_clauses: 'id, estimate_id',
     })
   }
 }

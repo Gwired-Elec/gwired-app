@@ -2,16 +2,16 @@ import { useMemo, useState } from 'react'
 import MaterialPicker from '../../components/MaterialPicker'
 import { useAuth } from '../../lib/auth'
 import {
-  useAllPrices, useAssemblies, useEstSettings, useLabourRates, useMaterials, usePointRates, usePrelims, useSuppliers,
+  useAllPrices, useAssemblies, useClauseLibrary, type LibraryClause, useEstSettings, useLabourRates, useMaterials, usePointRates, usePrelims, useSuppliers,
   type Material,
 } from '../../lib/estimating/data'
 import { estimateTotals, lineCost, lineHours, lineSell, revLetter, sellEach, suggestedSell, upliftOf, type Totals, type Uplift } from '../../lib/estimating/estimate'
-import { perUnitText, useJobEstimates, type Estimate, type Line, type Section } from '../../lib/estimating/estimates'
+import { perUnitText, useJobEstimates, type EstClause, type Estimate, type Line, type Section } from '../../lib/estimating/estimates'
 import { planJobPrice } from '../../lib/estimating/learn'
 import { bestPrice, costPerUnit, isStale, priceAndPer, sellPerUnit } from '../../lib/estimating/pricing'
 import type { Job } from '../../lib/jobs'
 import { formatGBP } from '../../lib/money'
-import { db, WRITABLE } from '../../lib/sync/db'
+import { db, WRITABLE, type SyncTable } from '../../lib/sync/db'
 import { logActivity, newId, remove, save, saveBatch } from '../../lib/sync/store'
 import { METHODS, hourlyCharge, hourlyCost } from '../../lib/estimating/data'
 import { buildQuotePdf } from '../../lib/estimating/quotePdf'
@@ -29,11 +29,12 @@ export default function EstimateTab({ job, user }: { job: Job; user: User }) {
   const data = useJobEstimates(job.id)
   const settings = useEstSettings()
   const labour = useLabourRates()
+  const library = useClauseLibrary()
   const [sel, setSel] = useState('')
 
   if (!can('estimates.view')) return <div className="card"><p className="muted">You don't have permission to see estimates.</p></div>
-  if (!data || !labour) return <p className="muted">Loading…</p>
-  const { estimates, sections, lines } = data
+  if (!data || !labour || !library) return <p className="muted">Loading…</p>
+  const { estimates, sections, lines, clauses } = data
   const est = estimates.find((e) => e.id === sel) ?? estimates.at(-1)
   const canEdit = can('estimates.edit')
 
@@ -42,7 +43,7 @@ export default function EstimateTab({ job, user }: { job: Job; user: User }) {
     const id = newId()
     const rev = (estimates.at(-1)?.rev ?? 0) + 1
     const method = from?.method ?? (settings.method_defaults?.[job.job_type] as Estimate['method']) ?? 'units'
-    const items: { tbl: 'estimates' | 'estimate_sections' | 'estimate_lines'; id: string; patch: Record<string, unknown> }[] = [{
+    const items: { tbl: SyncTable; id: string; patch: Record<string, unknown> }[] = [{
       tbl: 'estimates', id,
       patch: {
         job_id: job.id, rev, status: 'draft', method, labour_rate_id: from?.labour_rate_id ?? labour!.find((l) => l.active !== false)?.id ?? null,
@@ -65,9 +66,12 @@ export default function EstimateTab({ job, user }: { job: Job; user: User }) {
         patch.section_id = l.section_id ? map.get(l.section_id) ?? null : null
         items.push({ tbl: 'estimate_lines', id: newId(), patch })
       }
+      for (const c of clauses.filter((x) => x.estimate_id === from.id)) items.push({ tbl: 'estimate_clauses', id: newId(), patch: { estimate_id: id, library_id: c.library_id, kind: c.kind, title: c.title, body: c.body, sort: c.sort } })
       if (from.status === 'issued') items.push({ tbl: 'estimates', id: from.id, patch: { status: 'superseded' } })
     } else {
       items.push({ tbl: 'estimate_sections', id: newId(), patch: { estimate_id: id, name: 'Works', sort: 10 } })
+      // the standard exclusions and assumptions marked as ticked on every new estimate
+      for (const c of library!.filter((x) => x.active !== false && x.default_on)) items.push({ tbl: 'estimate_clauses', id: newId(), patch: { estimate_id: id, library_id: c.id, kind: c.kind, title: c.title, body: c.body, sort: c.sort } })
     }
     await saveBatch(items)
     await logActivity('job', job.id, 'estimate', { rev: revLetter(rev), from: from ? revLetter(from.rev) : null }, user)
@@ -87,7 +91,7 @@ export default function EstimateTab({ job, user }: { job: Job; user: User }) {
   return (
     <>
       <Revisions estimates={estimates} lines={lines} current={est} onPick={setSel} onNew={canEdit ? () => create(est) : undefined} />
-      <Editor key={est.id} job={job} est={est} sections={sections.filter((s) => s.estimate_id === est.id)} lines={lines.filter((l) => l.estimate_id === est.id)} others={estimates.filter((e) => e.id !== est.id)} user={user} canEdit={canEdit} />
+      <Editor key={est.id} job={job} est={est} sections={sections.filter((s) => s.estimate_id === est.id)} lines={lines.filter((l) => l.estimate_id === est.id)} clauses={clauses.filter((c) => c.estimate_id === est.id)} library={library} others={estimates.filter((e) => e.id !== est.id)} user={user} canEdit={canEdit} />
     </>
   )
 }
@@ -127,7 +131,7 @@ function Revisions({ estimates, lines, current, onPick, onNew }: { estimates: Es
 }
 
 // ---------------------------------------------------------------- one revision
-function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job; est: Estimate; sections: Section[]; lines: Line[]; others: Estimate[]; user: User; canEdit: boolean }) {
+function Editor({ job, est, sections, lines, clauses, library, others, user, canEdit }: { job: Job; est: Estimate; sections: Section[]; lines: Line[]; clauses: EstClause[]; library: LibraryClause[]; others: Estimate[]; user: User; canEdit: boolean }) {
   const { can } = useAuth()
   const settings = useEstSettings()
   const labour = useLabourRates()
@@ -405,11 +409,12 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
       })}
       {editable && <button className="btn" style={{ marginTop: 16, marginBottom: 24 }} onClick={() => save('estimate_sections', newId(), { estimate_id: est.id, name: 'New section', sort: (ordered.at(-1)?.sort ?? 0) + 10 })}>+ Add a section</button>}
 
+      <ClausesCard est={est} clauses={clauses} library={library} editable={editable} />
       <Terms est={est} editable={editable} onSet={setEst} />
       <TotalsCard t={totals} est={est} seeCost={seeCost} methodName={methodName} />
 
       {canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
-      <QuoteButton job={job} est={est} sections={sections} lines={lines} />
+      <QuoteButton job={job} est={est} sections={sections} lines={lines} clauses={clauses} />
       {canEdit && est.status === 'issued' && <button className="btn" onClick={() => setEst({ status: 'accepted' })}>Mark as accepted</button>}
       {statusDialog}
       <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Emailing the quote arrives once Outlook is connected.</p>
@@ -440,6 +445,7 @@ function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCos
         {(l.kind === 'material' || l.hours_per_unit > 0) && <div className="f"><label>Hours each</label>
           <input key={'h' + l.hours_per_unit} type="text" inputMode="decimal" defaultValue={String(l.hours_per_unit)} disabled={!editable} onBlur={(e) => { const n = num(e.target.value); if (Number.isFinite(n) && n >= 0 && n !== l.hours_per_unit) onEdit({ hours_per_unit: n }) }} /></div>}
       </div>
+      <input key={'n' + (l.notes ?? '')} type="text" defaultValue={l.notes ?? ''} disabled={!editable} placeholder="Note on the quote (optional)" aria-label="Note on the quote" style={{ marginTop: 8 }} onBlur={(e) => e.target.value.trim() !== (l.notes ?? '') && onEdit({ notes: e.target.value.trim() || null })} />
       <p className="small muted" style={{ margin: '4px 0 0' }}>
         {[
           seeCost && <span key="c">cost {formatGBP(lineCost(l))}</span>,
@@ -553,6 +559,63 @@ function AddPanel(p: {
   )
 }
 
+// ---------------------------------------------------------------- exclusions and assumptions (ticked from the library, editable per quote)
+function ClausesCard({ est, clauses, library, editable }: { est: Estimate; clauses: EstClause[]; library: LibraryClause[]; editable: boolean }) {
+  const [adding, setAdding] = useState<'' | 'exclusion' | 'assumption'>('')
+  const [draft, setDraft] = useState({ title: '', body: '' })
+  const group = (kind: 'assumption' | 'exclusion', heading: string) => {
+    const lib = library.filter((c) => c.kind === kind && c.active !== false)
+    const mine = clauses.filter((c) => c.kind === kind)
+    const own = mine.filter((c) => !c.library_id)
+    const toggle = (c: LibraryClause) => {
+      const on = mine.find((m) => m.library_id === c.id)
+      if (on) void remove('estimate_clauses', on.id)
+      else void save('estimate_clauses', newId(), { estimate_id: est.id, library_id: c.id, kind, title: c.title, body: c.body, sort: c.sort })
+    }
+    const wording = (c: EstClause) => (
+      <textarea key={c.body} rows={3} defaultValue={c.body} disabled={!editable} aria-label={c.title} style={{ marginLeft: 28, width: 'calc(100% - 28px)' }}
+        onBlur={(e) => e.target.value.trim() && e.target.value !== c.body && save('estimate_clauses', c.id, { body: e.target.value.trim() })} />
+    )
+    return (
+      <div className="clause-group">
+        <h3>{heading} <span className="muted small">({mine.length} on this quote)</span></h3>
+        {lib.map((c) => {
+          const on = mine.find((m) => m.library_id === c.id)
+          return (
+            <div key={c.id} className={'clause-pick' + (on ? ' on' : '')}>
+              <label className="check"><input type="checkbox" disabled={!editable} checked={!!on} onChange={() => toggle(c)} /> <strong>{c.title}</strong></label>
+              {on ? wording(on) : <p className="muted small" style={{ margin: '2px 0 8px 28px' }}>{c.body}</p>}
+            </div>
+          )
+        })}
+        {own.map((c) => (
+          <div key={c.id} className="clause-pick on">
+            <div className="rowtop"><strong>{c.title}</strong>{editable && <button className="link small" onClick={() => remove('estimate_clauses', c.id)}>Remove</button>}</div>
+            {wording(c)}
+          </div>
+        ))}
+        {editable && adding !== kind && <button className="link small" onClick={() => (setAdding(kind), setDraft({ title: '', body: '' }))}>+ Add your own for this quote</button>}
+        {editable && adding === kind && (
+          <div className="clause-pick on">
+            <input type="text" placeholder="Short title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} aria-label="Clause title" />
+            <textarea rows={3} placeholder="Wording as it will appear on the quote" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} aria-label="Clause wording" />
+            <button className="btn primary" disabled={!draft.body.trim()} onClick={async () => { await save('estimate_clauses', newId(), { estimate_id: est.id, library_id: null, kind, title: draft.title.trim() || 'Note', body: draft.body.trim(), sort: 1000 + clauses.length }); setAdding('') }}>Add</button>
+            <button className="link small" onClick={() => setAdding('')}>Cancel</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="card">
+      <h2>Assumptions and exclusions</h2>
+      <p className="muted small">Tick the standard wording that applies to this quote and it prints on the PDF. You can change the wording for this quote only. The standard list lives under More &gt; Estimating data &gt; Exclusions and assumptions.</p>
+      {group('assumption', 'Assumptions')}
+      {group('exclusion', 'Exclusions')}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------- terms and totals
 function Terms({ est, editable, onSet }: { est: Estimate; editable: boolean; onSet: (p: Record<string, unknown>) => void }) {
   const pct = (key: 'ohp_pct' | 'ohp_materials_pct' | 'ohp_labour_pct' | 'contingency_pct' | 'discount_pct' | 'vat_rate', label: string) => (
@@ -608,7 +671,7 @@ function TotalsCard({ t, est, seeCost, methodName }: { t: Totals; est: Estimate;
 }
 
 // ---------------------------------------------------------------- the quote PDF
-function QuoteButton({ job, est, sections, lines }: { job: Job; est: Estimate; sections: Section[]; lines: Line[] }) {
+function QuoteButton({ job, est, sections, lines, clauses }: { job: Job; est: Estimate; sections: Section[]; lines: Line[]; clauses: EstClause[] }) {
   const clients = useClients()
   const [detail, setDetail] = useState<'lines' | 'sections'>('lines')
   const [busy, setBusy] = useState(false)
@@ -626,7 +689,7 @@ function QuoteButton({ job, est, sections, lines }: { job: Job; est: Estimate; s
       const client = clients?.find((c) => c.id === job.client_id) ?? null
       const bytes = await buildQuotePdf({
         company, job: { job_number: job.job_number, title: job.title, site_address: job.site_address },
-        client: client ? { name: client.name, address: client.address } : null, estimate: est, sections, lines, detail, date: new Date(), logoPng: logo,
+        client: client ? { name: client.name, address: client.address } : null, estimate: est, sections, lines, clauses, detail, date: new Date(), logoPng: logo,
       })
       const name = 'Quote ' + (job.job_number ?? 'draft') + (est.rev > 1 ? ' rev ' + revLetter(est.rev) : '') + '.pdf'
       const file = new File([bytes as BlobPart], name, { type: 'application/pdf' })

@@ -178,3 +178,9 @@ table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2);
   .est table.mini { font-size: .85rem; }
   .est .warnbox { padding: 8px 10px; font-size: .88rem; }
 }
+
+/* exclusions and assumptions on an estimate */
+.clause-group { margin-top: 18px; }
+.clause-group h3 { margin: 0 0 8px; }
+.clause-pick { padding: 6px 0 10px; border-top: 1px solid var(--line, #2a2a2e); }
+.clause-pick textarea { margin-top: 4px; }

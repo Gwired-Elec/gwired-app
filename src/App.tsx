@@ -20,6 +20,7 @@ import { ClientList, ClientDetail } from './pages/Clients'
 import SyncLog from './pages/SyncLog'
 import PipelineSettings from './pages/PipelineSettings'
 import EstHub from './pages/estimating/Hub'
+import Clauses from './pages/estimating/Clauses'
 import { MaterialList, MaterialDetail } from './pages/estimating/Materials'
 import ImportPrices from './pages/estimating/Import'
 import { Suppliers, LabourRates, PointRates, Prelims, Defaults } from './pages/estimating/Rates'
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="more/estimating/points" element={<PointRates />} />
         <Route path="more/estimating/prelims" element={<Prelims />} />
         <Route path="more/estimating/defaults" element={<Defaults />} />
+        <Route path="more/estimating/clauses" element={<Clauses />} />
         <Route path="more/estimating/assemblies" element={<AssemblyList />} />
         <Route path="more/estimating/assemblies/:id" element={<AssemblyDetail />} />
         <Route path="login" element={<Navigate to="/" replace />} />

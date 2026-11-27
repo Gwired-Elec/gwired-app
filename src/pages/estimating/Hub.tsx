@@ -11,6 +11,7 @@ const LINKS: [string, string, string][] = [
   ['points', 'Point rates', 'Fixed price per socket, light, switch…'],
   ['assemblies', 'Assemblies', 'Kits of materials and labour'],
   ['prelims', 'Prelims and overheads', 'Access, waste, welfare, testing…'],
+  ['clauses', 'Exclusions and assumptions', 'Standard wording you tick onto each quote'],
   ['defaults', 'Estimating defaults', 'Markup, overheads, profit, pricing method by job type'],
 ]
 

@@ -90,6 +90,8 @@ async function pull() {
       let q = supabase.from(tbl).select('*').order('updated_at', { ascending: true }).order('id', { ascending: true }).limit(PAGE)
       if (cursor) q = q.gte('updated_at', cursor)
       const { data, error } = await q
+      // a table added by a newer SQL script that hasn't been run yet: skip it rather than stop everything syncing
+      if (error && /does not exist|schema cache|PGRST205|42P01/i.test(`${error.code ?? ''} ${error.message}`)) break
       if (error) throw new Error(`${tbl}: ${error.message}`)
       const rows = (data ?? []) as Row[]
       await applyPulled(tbl, rows)
