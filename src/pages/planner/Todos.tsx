@@ -62,11 +62,11 @@ export function TodoPanel({ jobId }: { jobId?: string }) {
         <div className="card">
           <label htmlFor="td-new">Add a to-do</label>
           <input id="td-new" type="text" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="e.g. Order 100m 2.5mm twin and earth" />
-          <div className="chips" role="group" aria-label="When">
+          <div className="chips fit" role="group" aria-label="When">
             <button className={`chip seg ${due === t0 ? 'on' : ''}`} onClick={() => setDue(due === t0 ? '' : t0)}>Today</button>
             <button className={`chip seg ${due === addDaysIso(t0, 1) ? 'on' : ''}`} onClick={() => setDue(due === addDaysIso(t0, 1) ? '' : addDaysIso(t0, 1))}>Tomorrow</button>
             <button className={`chip seg ${due === addDaysIso(t0, 7) ? 'on' : ''}`} onClick={() => setDue(due === addDaysIso(t0, 7) ? '' : addDaysIso(t0, 7))}>Next week</button>
-            <button className="chip" onClick={() => setMore(!more)} aria-expanded={more}>{more ? 'Fewer options' : 'More options'}</button>
+            <button className={`chip seg ${more || (due && due !== t0 && due !== addDaysIso(t0, 1) && due !== addDaysIso(t0, 7)) ? 'on' : ''}`} onClick={() => setMore(!more)} aria-expanded={more}>Date</button>
           </div>
           {more && (
             <>
