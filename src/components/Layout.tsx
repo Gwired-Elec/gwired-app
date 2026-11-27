@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import SyncIndicator from './SyncIndicator'
 import { useAuth } from '../lib/auth'
 import { useXeroAutoCheck } from '../lib/xero/xero'
+import { useStarterCleanup } from '../lib/planner/starterCleanup'
 
 const TABS = [
   { to: '/', label: 'Home', icon: '⌂', end: true },
@@ -15,6 +16,7 @@ const TABS = [
 export default function Layout() {
   const { can } = useAuth()
   useXeroAutoCheck(can('estimates.edit'))
+  useStarterCleanup(can('todos'))
   return (
     <div className="shell">
       <aside className="side" aria-label="Main">
