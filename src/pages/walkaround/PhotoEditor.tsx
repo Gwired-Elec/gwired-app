@@ -130,7 +130,7 @@ export function MarkupEditor({ blob, onDone, onCancel }: { blob: Blob; onDone: (
 
 // ---------------------------------------------------------------- right after taking photos
 // onAccept gets the picture to keep and, if it was marked up, the untouched one too
-export function ReviewQueue({ files, onAccept, onDone }: { files: File[]; onAccept: (b: Blob, original?: Blob) => Promise<void> | void; onDone: () => void }) {
+export function ReviewQueue({ files, onAccept, onDone }: { files: (File | Blob)[]; onAccept: (b: Blob, original?: Blob) => Promise<void> | void; onDone: () => void }) {
   useLockScroll()
   const [i, setI] = useState(0)
   const [blob, setBlob] = useState<Blob | null>(null)
@@ -211,5 +211,71 @@ export function PhotoViewer({ photo, onClose }: { photo: Photo; onClose: () => v
         <input key={photo.caption ?? ''} type="text" defaultValue={photo.caption ?? ''} placeholder="Caption (optional)" aria-label="Photo caption" onBlur={(e) => e.target.value !== (photo.caption ?? '') && save('walkaround_photos', photo.id, { caption: e.target.value.trim() || null })} />
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------- the in-app camera
+// A live camera inside the app, so a photo goes straight to the tick / pen screen with no separate "Use Photo" step from the
+// phone's own camera screen. After each one you are back at the camera for the next. If the camera cannot be opened (no
+// permission, an old browser), the phone's own camera / photo picker is used instead.
+function Camera({ onShot, onClose, onLibrary, kept }: { onShot: (b: Blob) => void; onClose: () => void; onLibrary: () => void; kept: number }) {
+  useLockScroll()
+  const video = useRef<HTMLVideoElement>(null)
+  const [err, setErr] = useState('')
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let dead = false
+    let stream: MediaStream | null = null
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false }).then((st) => {
+      if (dead) { st.getTracks().forEach((t) => t.stop()); return }
+      stream = st
+      if (video.current) { video.current.srcObject = st; void video.current.play() }
+      setReady(true)
+    }, () => { if (!dead) setErr('The camera could not be opened. Allow camera access for this site in your phone settings, or use the button below to pick from your photos.') })
+    return () => { dead = true; stream?.getTracks().forEach((t) => t.stop()) }
+  }, [])
+  const snap = () => {
+    const v = video.current
+    if (!v || !v.videoWidth) return
+    const c = document.createElement('canvas')
+    c.width = v.videoWidth
+    c.height = v.videoHeight
+    c.getContext('2d')!.drawImage(v, 0, 0)
+    c.toBlob((b) => b && onShot(b), 'image/jpeg', 0.92)
+  }
+  return (
+    <div className="pe" role="dialog" aria-label="Camera">
+      <div className="pe-bar">
+        <button type="button" className="pe-btn wide" onClick={onClose}>{kept ? `Done (${kept})` : '✕ Close'}</button>
+        <span className="pe-title" />
+      </div>
+      <div className="pe-stage">
+        {err ? <p className="pe-msg">{err}</p> : <video ref={video} className="pe-img" playsInline muted autoPlay />}
+      </div>
+      <div className="cam-foot">
+        <button type="button" className="pe-btn wide" onClick={onLibrary}>🖼 Library</button>
+        <button type="button" className="cam-shutter" onClick={snap} disabled={!ready} aria-label="Take photo" />
+        <span style={{ width: 90 }} />
+      </div>
+    </div>
+  )
+}
+
+// The "Add photo" button for an item: opens the camera, shows each photo for a tick or the pen, and hands the kept ones back.
+export function PhotoCapture({ busy, onKeep }: { busy?: boolean; onKeep: (b: Blob, original?: Blob) => Promise<void> | void }) {
+  const [open, setOpen] = useState(false)
+  const [review, setReview] = useState<(File | Blob)[]>([])
+  const [kept, setKept] = useState(0)
+  const pick = useRef<HTMLInputElement>(null)
+  const live = !!navigator.mediaDevices?.getUserMedia
+  return (
+    <>
+      <button type="button" className="iconbtn" disabled={busy} style={{ opacity: busy ? 0.6 : 1 }} onClick={() => (live ? (setKept(0), setOpen(true)) : pick.current?.click())}>
+        {busy ? 'Adding…' : '📷 Add photo'}
+      </button>
+      <input ref={pick} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) setReview(fs) }} />
+      {open && <Camera kept={kept} onShot={(b) => setReview([b])} onClose={() => setOpen(false)} onLibrary={() => pick.current?.click()} />}
+      {review.length > 0 && <ReviewQueue files={review} onAccept={async (b, o) => { await onKeep(b, o); setKept((k) => k + 1) }} onDone={() => setReview([])} />}
+    </>
   )
 }

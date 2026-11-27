@@ -4,9 +4,10 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib'
 import { clean, wrap } from '../estimating/quotePdf'
 import { revLetter } from '../estimating/estimate'
+import type ExcelJS from 'exceljs'
 
 export interface SowCompany { name: string; address?: string | null; vat_number?: string | null; company_number?: string | null; email?: string | null; phone?: string | null }
-export interface SowPhoto { blob: Blob; caption: string | null }
+export interface SowPhoto { blob: Blob; caption: string | null; width?: number; height?: number }
 export interface SowItem { description: string; qty: number; unit: string; notes: string | null; photos?: SowPhoto[] }
 export interface SowArea { name: string; notes: string | null; items: SowItem[]; photos: SowPhoto[] } // area photos: only any taken against the whole area
 export interface SowInput {
@@ -201,9 +202,26 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
   head.height = 20
   ws.views = [{ state: 'frozen', ySplit: head.number }]
   const money = '"£"#,##0.00'
+  // Pictures go in their own rows under the item, up to three across, each about 112 x 84 pixels (the sheet stays a sensible size)
+  const colBpx = (rates ? 52 : 60) * 7 + 5 // width of column B in pixels, to place pictures inside it
+  const putPhotos = async (list: SowPhoto[]) => {
+    for (let i = 0; i < list.length; i += 3) {
+      const row = ws.addRow([])
+      row.height = 68
+      for (let k = 0; k < Math.min(3, list.length - i); k++) {
+        const p = list[i + k]
+        const ratio = p.width && p.height ? p.width / p.height : 4 / 3
+        const w = ratio >= 112 / 84 ? 112 : Math.round(84 * ratio)
+        const h = ratio >= 112 / 84 ? Math.round(112 / ratio) : 84
+        const id = wb.addImage({ buffer: (await p.blob.arrayBuffer()) as unknown as ExcelJS.Buffer, extension: 'jpeg' })
+        ws.addImage(id, { tl: { col: 1 + (k * 120 + 4) / colBpx, row: row.number - 1 + 0.04 }, ext: { width: w, height: h } })
+      }
+    }
+  }
   const totalRows: number[] = []
 
-  q.areas.forEach((a, ai) => {
+  for (let ai = 0; ai < q.areas.length; ai++) {
+    const a = q.areas[ai]
     const band = ws.addRow([code(ai), a.name.toUpperCase()])
     ws.mergeCells(band.number, 2, band.number, last)
     band.eachCell({ includeEmpty: true }, (c) => { c.font = { bold: true }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F1F4' } } })
@@ -215,7 +233,8 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
       n.getCell(2).alignment = { wrapText: true, vertical: 'top' }
       n.height = Math.max(15, Math.ceil(a.notes.length / 95) * 15)
     }
-    a.items.forEach((it, i) => {
+    for (let i = 0; i < a.items.length; i++) {
+      const it = a.items[i]
       const r = rates
         ? ws.addRow([`${code(ai)}.${i + 1}`, it.description, it.qty, it.unit, null, null, it.notes ?? ''])
         : ws.addRow([`${code(ai)}.${i + 1}`, it.description, it.qty, it.unit, it.notes ?? ''])
@@ -231,9 +250,11 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
       r.getCell(3).alignment = { vertical: 'middle', horizontal: 'right' }
       r.getCell(last).font = { color: { argb: 'FF666666' }, size: 9 }
       r.height = Math.max(16, Math.ceil(it.description.length / 55) * 15)
-    })
+      if (it.photos?.length) await putPhotos(it.photos)
+    }
+    if (a.photos.length) await putPhotos(a.photos)
     ws.addRow([])
-  })
+  }
 
   if (rates && totalRows.length) {
     const t = ws.addRow([])
@@ -244,10 +265,6 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
     t.getCell(6).font = { bold: true }
     const note = ws.addRow(['', 'Type each rate in the yellow cells. Totals and this sum work themselves out.'])
     note.getCell(2).font = { italic: true, size: 9, color: { argb: 'FF666666' } }
-  }
-  if (q.areas.some((a) => a.photos.length || a.items.some((i) => i.photos?.length))) {
-    const n = ws.addRow(['', 'Photos are included in the PDF version.'])
-    n.getCell(2).font = { italic: true, size: 9, color: { argb: 'FF666666' } }
   }
   return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>
 }

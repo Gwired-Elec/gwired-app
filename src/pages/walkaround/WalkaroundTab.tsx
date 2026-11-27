@@ -5,7 +5,7 @@ import type { Job } from '../../lib/jobs'
 import { db, type Row } from '../../lib/sync/db'
 import { newId, remove, save } from '../../lib/sync/store'
 import { keepLocal, keepOriginal, photoWaiting, uploadPendingPhotos, usePhotoUrl } from '../../lib/walkaround/photoStore'
-import { PhotoViewer, ReviewQueue } from './PhotoEditor'
+import { PhotoCapture, PhotoViewer } from './PhotoEditor'
 import SowExport from './SowExport'
 
 export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
@@ -89,16 +89,6 @@ async function attachPhotos(items: Kept[], jobId: string, areaId: string, elemen
   void uploadPendingPhotos()
 }
 
-// the camera button: opens the camera or photo library, several pictures at once
-function PhotoButton({ busy, onFiles }: { busy?: boolean; onFiles: (f: File[]) => void }) {
-  return (
-    <label className="iconbtn" style={{ opacity: busy ? 0.6 : 1 }}>
-      {busy ? 'Adding…' : '📷 Add photo'}
-      <input type="file" accept="image/*" multiple disabled={busy} style={{ display: 'none' }} onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) onFiles(fs) }} />
-    </label>
-  )
-}
-
 // small previews of pictures chosen for a new item, before it has been added
 function PendingThumbs({ files, onRemove }: { files: Kept[]; onRemove: (i: number) => void }) {
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f.blob)), [files])
@@ -118,7 +108,6 @@ function ItemExtras({ jobId, areaId, el, photos }: { jobId: string; areaId: stri
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
-  const [queue, setQueue] = useState<File[]>([]) // pictures just taken, being reviewed
   const sortRef = useRef(0)
   async function keep(blob: Blob, original?: Blob) {
     setBusy(true); setErr('')
@@ -132,13 +121,12 @@ function ItemExtras({ jobId, areaId, el, photos }: { jobId: string; areaId: stri
   return (
     <>
       <div className="walk-actions">
-        <PhotoButton busy={busy} onFiles={setQueue} />
+        <PhotoCapture busy={busy} onKeep={keep} />
         <button type="button" className="iconbtn" aria-expanded={showNote} onClick={() => setNoteOpen((o) => !o)}>📝 {el.notes ? 'Note' : 'Add note'}</button>
       </div>
       {showNote && <input key={'m' + (el.notes ?? '')} type="text" defaultValue={el.notes ?? ''} autoFocus={noteOpen && !el.notes} placeholder="Note" aria-label="Note" style={{ marginTop: 8 }} onBlur={(e) => e.target.value !== (el.notes ?? '') && save('walkaround_elements', el.id, { notes: e.target.value.trim() || null })} />}
       {err && <p className="err" role="alert">{err}</p>}
       {photos.length > 0 && <div className="thumbs">{photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}</div>}
-      {queue.length > 0 && <ReviewQueue files={queue} onAccept={keep} onDone={() => setQueue([])} />}
     </>
   )
 }
@@ -150,7 +138,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
   const [note, setNote] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
   const [pending, setPending] = useState<Kept[]>([]) // photos accepted for the new item before it is added
-  const [queue, setQueue] = useState<File[]>([]) // pictures just taken, being reviewed
+
   const [adding, setAdding] = useState(false)
   const [addErr, setAddErr] = useState('')
   const addEl = async (e: FormEvent) => {
@@ -203,12 +191,11 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
         <div className="walk-actions">
-          <PhotoButton onFiles={setQueue} />
+          <PhotoCapture onKeep={(blob, original) => setPending((p) => [...p, { blob, original }])} />
           <button type="button" className="iconbtn" aria-expanded={noteOpen || !!note} onClick={() => setNoteOpen((o) => !o)}>📝 {note ? 'Note' : 'Add note'}</button>
         </div>
         {(noteOpen || !!note) && <input type="text" value={note} autoFocus={noteOpen && !note} onChange={(e) => setNote(e.target.value)} placeholder="Note" aria-label="Note for this item" style={{ marginTop: 8 }} />}
         <PendingThumbs files={pending} onRemove={(i) => setPending((p) => p.filter((_, k) => k !== i))} />
-        {queue.length > 0 && <ReviewQueue files={queue} onAccept={(blob, original) => setPending((p) => [...p, { blob, original }])} onDone={() => setQueue([])} />}
         {addErr && <p className="err" role="alert">{addErr}</p>}
         <button className="btn" style={{ marginTop: 14 }} disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
       </form>

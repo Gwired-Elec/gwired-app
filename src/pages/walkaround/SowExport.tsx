@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { cachedCompany, loadCompany } from '../../lib/company'
 import type { Job } from '../../lib/jobs'
 import { useClients } from '../../lib/jobs'
-import { getPhotoBlob } from '../../lib/walkaround/photoStore'
-import { buildSowPdf, buildSowXlsx, type SowInput } from '../../lib/walkaround/sow'
+import { getPhotoBlob, shrinkImage } from '../../lib/walkaround/photoStore'
+import { buildSowPdf, buildSowXlsx, type SowInput, type SowPhoto } from '../../lib/walkaround/sow'
 import type { Area, Element, Photo } from './WalkaroundTab'
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -44,11 +44,19 @@ export default function SowExport({ job, areas, elements, photos }: { job: Job; 
       let missing = 0
       const sowAreas = await Promise.all(areas.map(async (a) => {
         const load = async (list: Photo[]) => {
-          const out: { blob: Blob; caption: string | null }[] = []
-          if (kind !== 'pdf' || !withPhotos) return out
+          const out: SowPhoto[] = []
+          if (!withPhotos) return out
           for (const p of list) {
-            const blob = await getPhotoBlob(p)
-            if (blob) out.push({ blob, caption: p.caption }); else missing += 1
+            const full = await getPhotoBlob(p)
+            if (!full) { missing += 1; continue }
+            if (kind === 'pdf') { out.push({ blob: full, caption: p.caption }); continue }
+            // Excel: a small copy keeps the file light
+            try {
+              const small = await shrinkImage(full, 700, 0.7)
+              const bm = await createImageBitmap(small)
+              out.push({ blob: small, caption: p.caption, width: bm.width, height: bm.height })
+              bm.close()
+            } catch { missing += 1 }
           }
           return out
         }
@@ -75,7 +83,7 @@ export default function SowExport({ job, areas, elements, photos }: { job: Job; 
       <h2>Scope of works</h2>
       <p className="muted small">Made from the areas, notes, items and photos above. Send it out as a PDF, or as an Excel sheet for pricing.</p>
       <label className="check"><input type="checkbox" checked={showRates} onChange={(e) => setShowRates(e.target.checked)} /> Include blank Rate and Total columns for pricing</label>
-      <label className="check"><input type="checkbox" checked={withPhotos} onChange={(e) => setWithPhotos(e.target.checked)} /> Include the photos in the PDF</label>
+      <label className="check"><input type="checkbox" checked={withPhotos} onChange={(e) => setWithPhotos(e.target.checked)} /> Include the photos (PDF and Excel)</label>
       {err && <p className="err" role="alert">{err}</p>}
       {skipped > 0 && <p className="warnbox" role="status">{skipped} photo{skipped === 1 ? ' was' : 's were'} left out because {skipped === 1 ? 'it is' : 'they are'} not on this device yet. Connect to the internet and try again.</p>}
       <button className="btn primary" onClick={() => make('pdf')} disabled={!!busy}>{busy === 'pdf' ? 'Making the PDF…' : 'Make PDF'}</button>
