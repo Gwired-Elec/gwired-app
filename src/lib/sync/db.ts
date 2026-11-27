@@ -3,7 +3,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
-  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses'] as const
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines', 'clause_library', 'estimate_clauses', 'walkarounds', 'walkaround_areas', 'walkaround_elements'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -30,6 +30,9 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   estimate_lines: [],
   clause_library: [],
   estimate_clauses: [],
+  walkarounds: [],
+  walkaround_areas: [],
+  walkaround_elements: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -55,6 +58,9 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   estimate_lines: ['estimate_id', 'section_id', 'sort', 'kind', 'description', 'qty', 'unit', 'material_id', 'point_rate_id', 'labour_rate_id', 'unit_cost', 'unit_sell', 'hours_per_unit', 'labour_cost_hr_pence', 'labour_charge_hr_pence', 'sell_override', 'markup_pct', 'price_date', 'price_source', 'notes', 'deleted_at'],
   clause_library: ['kind', 'title', 'body', 'sort', 'default_on', 'active', 'deleted_at'],
   estimate_clauses: ['estimate_id', 'library_id', 'kind', 'title', 'body', 'sort', 'deleted_at'],
+  walkarounds: ['job_id', 'title', 'visit_date', 'notes', 'deleted_at'],
+  walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
+  walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -117,6 +123,9 @@ export class GwDb extends Dexie {
   estimate_lines!: Table<Row, string>
   clause_library!: Table<Row, string>
   estimate_clauses!: Table<Row, string>
+  walkarounds!: Table<Row, string>
+  walkaround_areas!: Table<Row, string>
+  walkaround_elements!: Table<Row, string>
 
   constructor(userId: string) {
     super('gwired-' + userId)
@@ -155,6 +164,12 @@ export class GwDb extends Dexie {
     this.version(4).stores({
       clause_library: 'id, kind, sort',
       estimate_clauses: 'id, estimate_id',
+    })
+    // version 5 (Phase 3): site walkaround
+    this.version(5).stores({
+      walkarounds: 'id, job_id',
+      walkaround_areas: 'id, walkaround_id',
+      walkaround_elements: 'id, area_id',
     })
   }
 }
