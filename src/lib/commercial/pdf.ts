@@ -3,8 +3,8 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib'
 import { clean, wrap } from '../estimating/quotePdf'
 import { formatGBP } from '../money'
-import { invoiceTotals, variationLine, type Valuation } from '../money/applications'
-import type { Application, ApplicationLine, Invoice, Variation, VariationLine } from './data'
+import { invoiceTotals, type Valuation } from '../money/applications'
+import type { Application, ApplicationLine, Invoice, Variation } from './data'
 import { vref } from './data'
 
 export interface DocCompany { name: string; address?: string | null; vat_number?: string | null; company_number?: string | null; email?: string | null; phone?: string | null; terms?: string | null; bank?: string | null }
@@ -123,15 +123,15 @@ async function start(b: DocBase, title: string, sub: string, ref: string, extra:
 }
 
 // ---------------------------------------------------------------- variation
-export async function buildVariationPdf(b: DocBase & { variation: Variation; lines: VariationLine[] }): Promise<Uint8Array> {
+export interface VariationRow { description: string; qty: number; unit: string; rate: number; total: number }
+export async function buildVariationPdf(b: DocBase & { variation: Variation; rows: VariationRow[] }): Promise<Uint8Array> {
   const d = await start(b, 'VARIATION', 'Instruction / confirmation of variation to the contract', `Ref ${b.job.job_number ?? ''} ${vref(b.variation.number)}`.trim(), [`Status: ${b.variation.status}`])
   d.text(b.variation.title || 'Variation', 11, d.bold)
   d.down(14)
   if (b.variation.description) { d.para(b.variation.description, 9, d.ink); d.down(6) }
   d.setCols([{ label: 'Item', x: 44, align: 'l' }, { label: 'Description', x: 72, align: 'l' }, { label: 'Qty', x: 330, align: 'r' }, { label: 'Unit', x: 338, align: 'l' }, { label: 'Rate', x: 440, align: 'r' }, { label: 'Total', x: 555, align: 'r' }])
-  const lines = [...b.lines].sort((a, c) => a.sort - c.sort)
-  lines.forEach((l, i) => d.row([String(i + 1), l.description, String(l.qty), l.unit, formatGBP(l.rate_pence), formatGBP(variationLine(l.qty, l.rate_pence))], { wrapCol: 1 }))
-  const net = lines.reduce((a, l) => a + variationLine(l.qty, l.rate_pence), 0)
+  b.rows.forEach((l, i) => d.row([String(i + 1), l.description, String(l.qty), l.unit, formatGBP(l.rate), formatGBP(l.total)], { wrapCol: 1 }))
+  const net = b.rows.reduce((a, l) => a + l.total, 0)
   d.sums([['Total of this variation, excluding VAT', formatGBP(net), true]])
   d.para('VAT is added at the applicable rate when this variation is included in an application for payment or invoice.')
   return d.finish()

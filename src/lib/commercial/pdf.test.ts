@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { chain, type AppTerms } from '../money/applications'
-import type { Application, ApplicationLine, Invoice, Variation, VariationLine } from './data'
+import type { Application, ApplicationLine, Invoice, Variation } from './data'
 import { buildApplicationPdf, buildInvoicePdf, buildVariationPdf } from './pdf'
 
 const base = {
@@ -13,8 +13,8 @@ const isPdf = (b: Uint8Array) => new TextDecoder().decode(b.slice(0, 5)) === '%P
 describe('commercial PDFs', () => {
   it('makes a variation', async () => {
     const v = { ...row, job_id: 'j', number: 1, title: 'Extra sockets', description: 'As instructed', status: 'issued', var_date: '2026-11-27' } as unknown as Variation
-    const lines = [{ ...row, variation_id: 'x', sort: 1, description: 'Twin socket', qty: 4, unit: 'nr', rate_pence: 6500 }] as unknown as VariationLine[]
-    expect(isPdf(await buildVariationPdf({ ...base, variation: v, lines }))).toBe(true)
+    const rows = [{ description: 'Twin socket', qty: 4, unit: 'nr', rate: 6500, total: 26000 }]
+    expect(isPdf(await buildVariationPdf({ ...base, variation: v, rows }))).toBe(true)
   })
   it('makes an application with many lines (several pages)', async () => {
     const terms: AppTerms = { retention_pct: 5, retention_release_pence: 0, cis_on: true, cis_rate: 20, cis_labour_pct: 50, reverse_charge: false, vat_rate: 20 }

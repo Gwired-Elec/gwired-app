@@ -132,7 +132,7 @@ function Revisions({ estimates, lines, current, onPick, onNew }: { estimates: Es
 }
 
 // ---------------------------------------------------------------- one revision
-function Editor({ job, est, sections, lines, clauses, library, others, user, canEdit }: { job: Job; est: Estimate; sections: Section[]; lines: Line[]; clauses: EstClause[]; library: LibraryClause[]; others: Estimate[]; user: User; canEdit: boolean }) {
+export function Editor({ job, est, sections, lines, clauses, library, others, user, canEdit, variation }: { variation?: { locked: boolean }; job: Job; est: Estimate; sections: Section[]; lines: Line[]; clauses: EstClause[]; library: LibraryClause[]; others: Estimate[]; user: User; canEdit: boolean }) {
   const { can } = useAuth()
   const settings = useEstSettings()
   const labour = useLabourRates()
@@ -150,7 +150,7 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
   const [adding, setAdding] = useState<{ section: string; mode: string; prefill?: string } | null>(null)
   const seeCost = can('estimates.view_cost')
   const draft = est.status === 'draft'
-  const editable = canEdit && draft
+  const editable = canEdit && draft && !variation?.locked
   const totals = useMemo(() => estimateTotals(lines, est), [lines, est])
   const uplift = upliftOf(est)
   const jobRef = job.job_number ?? 'unnumbered job'
@@ -375,7 +375,7 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
 
   return (
     <>
-      {!draft && (
+      {!draft && !variation && (
         <div className="card notice">
           <p><strong>Revision {revLetter(est.rev)} is {est.status}</strong>, so it is locked. To change the price, make a new revision.</p>
           {canEdit && est.status !== 'superseded' && <button className="btn" onClick={() => setEst({ status: 'draft' })}>Re-open as draft</button>}
@@ -409,7 +409,7 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
         </div>
       )}
 
-      <div className="card">
+      {!variation && <div className="card">
         <h2>Bring in the site walkaround</h2>
         {!walk ? <p className="muted small">Loading…</p> : !walk.elements.length ? (
           <p className="muted small">No items on this job's walkaround yet. Add areas and items on the job's <strong>Walkaround</strong> tab, then come back here to bring them into the estimate.</p>
@@ -423,7 +423,7 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
             <button className="btn primary" onClick={importWalkaround}>Bring in {walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround</button>
           </>
         )}
-      </div>
+      </div>}
       {ordered.map((s) => {
         const sl = lines.filter((l) => l.section_id === s.id).sort((a, b) => a.sort - b.sort)
         const sectionTotal = sl.reduce((a, l) => a + lineSell(l, uplift), 0)
@@ -456,15 +456,15 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
       })}
       {editable && <button className="btn" style={{ marginTop: 16, marginBottom: 24 }} onClick={() => save('estimate_sections', newId(), { estimate_id: est.id, name: 'New section', sort: (ordered.at(-1)?.sort ?? 0) + 10 })}>+ Add a section</button>}
 
-      <ClausesCard est={est} clauses={clauses} library={library} editable={editable} />
+      {!variation && <ClausesCard est={est} clauses={clauses} library={library} editable={editable} />}
       <Terms est={est} editable={editable} onSet={setEst} />
       <TotalsCard t={totals} est={est} seeCost={seeCost} methodName={methodName} />
 
-      {canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
-      <QuoteButton job={job} est={est} sections={sections} lines={lines} clauses={clauses} />
-      {canEdit && est.status === 'issued' && <button className="btn" onClick={() => setEst({ status: 'accepted' })}>Mark as accepted</button>}
+      {!variation && canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
+      {!variation && <QuoteButton job={job} est={est} sections={sections} lines={lines} clauses={clauses} />}
+      {!variation && canEdit && est.status === 'issued' && <button className="btn" onClick={() => setEst({ status: 'accepted' })}>Mark as accepted</button>}
       {statusDialog}
-      <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Emailing the quote arrives once Outlook is connected.</p>
+      {!variation && <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Emailing the quote arrives once Outlook is connected.</p>}
     </>
   )
 }

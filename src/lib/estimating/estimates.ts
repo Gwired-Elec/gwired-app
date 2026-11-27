@@ -20,6 +20,7 @@ export interface Estimate extends Row {
   reverse_charge: boolean
   notes: string | null
   issued_at: string | null
+  variation_id: string | null // set when this estimate prices a variation rather than the main quote
 }
 export interface Section extends Row { estimate_id: string; name: string; sort: number }
 export interface EstClause extends Row { estimate_id: string; library_id: string | null; kind: 'exclusion' | 'assumption'; title: string; body: string; sort: number }
@@ -55,12 +56,14 @@ const fixEst = (e: Estimate): Estimate => ({
 // everything about one job's estimates in one go
 export function useJobEstimates(jobId: string) {
   return useLiveQuery(async () => {
-    const estimates = ((await db().estimates.where('job_id').equals(jobId).filter(alive).toArray()) as unknown as Estimate[]).map(fixEst).sort((a, b) => a.rev - b.rev)
-    const ids = estimates.map((e) => e.id)
+    const every = ((await db().estimates.where('job_id').equals(jobId).filter(alive).toArray()) as unknown as Estimate[]).map(fixEst).sort((a, b) => a.rev - b.rev)
+    const estimates = every.filter((e) => !e.variation_id) // the quote and its revisions
+    const varEstimates = every.filter((e) => !!e.variation_id) // one per variation
+    const ids = every.map((e) => e.id)
     const sections = ids.length ? ((await db().estimate_sections.where('estimate_id').anyOf(ids).filter(alive).toArray()) as unknown as Section[]).map((s) => ({ ...s, sort: num(s.sort) })).sort((a, b) => a.sort - b.sort) : []
     const lines = ids.length ? ((await db().estimate_lines.where('estimate_id').anyOf(ids).filter(alive).toArray()) as unknown as Line[]).map(fixLine).sort((a, b) => a.sort - b.sort) : []
     const clauses = ids.length ? ((await db().estimate_clauses.where('estimate_id').anyOf(ids).filter(alive).toArray()) as unknown as EstClause[]).map((c) => ({ ...c, sort: num(c.sort) })).sort((a, b) => a.sort - b.sort) : []
-    return { estimates, sections, lines, clauses }
+    return { estimates, varEstimates, sections, lines, clauses }
   }, [jobId])
 }
 

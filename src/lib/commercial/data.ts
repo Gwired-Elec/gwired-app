@@ -24,8 +24,17 @@ const alive = (r: Row) => !r.deleted_at
 const n = (v: unknown) => Number(v ?? 0)
 
 export const variationValue = (lines: VariationLine[]) => lines.reduce((a, l) => a + variationLine(l.qty, l.rate_pence), 0)
+// What each variation is priced at, excluding VAT: its estimate if it has one, otherwise the old simple quantity x rate lines.
+export function variationValues(variations: Variation[], vlines: VariationLine[], varEstimates: Estimate[], lines: Line[]): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const v of variations) {
+    const e = varEstimates.find((x) => x.variation_id === v.id)
+    out.set(v.id, e ? estimateTotals(lines.filter((l) => l.estimate_id === e.id), e).netPence : variationValue(vlines.filter((l) => l.variation_id === v.id)))
+  }
+  return out
+}
 // what the client accepted: the full price unless a lower figure was agreed when it was approved
-export const acceptedValue = (v: Variation, lines: VariationLine[]) => v.approved_pence ?? variationValue(lines)
+export const acceptedValue = (v: Variation, priced: number) => v.approved_pence ?? priced
 export const vref = (n: number) => 'VO-' + String(n).padStart(3, '0')
 
 export function useCommercial(jobId: string) {

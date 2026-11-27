@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { MoneyInput, NumInput } from '../../components/MoneyInput'
 import { useAuth } from '../../lib/auth'
-import { acceptedValue, contractEstimate, contractItems, freshLines, lineFromPct, useCommercial, variationValue, vref, type Application, type ApplicationLine, type Invoice } from '../../lib/commercial/data'
+import { acceptedValue, contractEstimate, contractItems, freshLines, lineFromPct, useCommercial, variationValues, vref, type Application, type ApplicationLine, type Invoice } from '../../lib/commercial/data'
 import { buildApplicationPdf, buildInvoicePdf } from '../../lib/commercial/pdf'
 import { deliverPdf, docBase } from '../../lib/commercial/share'
 import { useJobEstimates } from '../../lib/estimating/estimates'
@@ -25,7 +25,8 @@ export default function ApplicationsTab({ job }: { job: Job }) {
   }, [est])
   if (!can('estimates.view')) return <div className="card"><p className="muted">You do not have access to prices.</p></div>
   if (!data || !est) return <p className="muted">Loading…</p>
-  const approved = data.variations.filter((v) => v.status === 'approved').map((v) => { const ls = data.vlines.filter((l) => l.variation_id === v.id); return { id: v.id, label: `${vref(v.number)} ${v.title || 'Variation'}`, pence: variationValue(ls), accepted: acceptedValue(v, ls) } })
+  const values = variationValues(data.variations, data.vlines, est.varEstimates, est.lines)
+  const approved = data.variations.filter((v) => v.status === 'approved').map((v) => { const p = values.get(v.id) ?? 0; return { id: v.id, label: `${vref(v.number)} ${v.title || 'Variation'}`, pence: p, accepted: acceptedValue(v, p) } })
   const approvedTotal = approved.reduce((a, v) => a + v.accepted, 0)
   const total = (contract?.net ?? 0) + approvedTotal
   return (
