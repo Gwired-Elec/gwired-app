@@ -306,9 +306,9 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     if (!text.trim()) return editLine(l, { sell_override: null })
     const c = priceAndPer(text)
     if (!c) return setWarns(['Check the sell price: use pounds and pence, e.g. 18.00'])
-    const v = r4(c.costPence / c.perQty)
-    if (v === r4(sellEach(l, uplift))) return
-    if (v === r4(suggestedSell(l, uplift))) return editLine(l, { sell_override: null })
+    const v = Math.round(c.costPence / c.perQty) // sell prices are whole pence
+    if (v === sellEach(l, uplift)) return
+    if (v === Math.round(suggestedSell(l, uplift))) return editLine(l, { sell_override: null })
     await editLine(l, { sell_override: v })
   }
   // existing lines keep the labour rate they were added with; the grade only applies to lines added from now on
@@ -425,7 +425,7 @@ function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCos
         {seeCost && <div className="f"><label>Cost each £</label>
           <input key={'c' + l.unit_cost} type="text" inputMode="decimal" defaultValue={perUnitText(l.unit_cost)} disabled={!editable} onBlur={(e) => onCost(e.target.value)} /></div>}
         <div className="f"><label>Sell each £</label>
-          <input key={'s' + sellEach(l, uplift)} type="text" inputMode="decimal" defaultValue={perUnitText(r4(sellEach(l, uplift)))} disabled={!editable} onBlur={(e) => onSell(e.target.value)} /></div>
+          <input key={'s' + sellEach(l, uplift)} type="text" inputMode="decimal" defaultValue={perUnitText(sellEach(l, uplift))} disabled={!editable} onBlur={(e) => onSell(e.target.value)} /></div>
         {(l.kind === 'material' || l.hours_per_unit > 0) && <div className="f"><label>Hours each</label>
           <input key={'h' + l.hours_per_unit} type="text" inputMode="decimal" defaultValue={String(l.hours_per_unit)} disabled={!editable} onBlur={(e) => { const n = num(e.target.value); if (Number.isFinite(n) && n >= 0 && n !== l.hours_per_unit) onEdit({ hours_per_unit: n }) }} /></div>}
       </div>

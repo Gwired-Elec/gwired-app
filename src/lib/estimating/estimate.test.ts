@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateTotals, lineCost, lineSell, revLetter, suggestedSell, type LineMaths } from './estimate'
+import { estimateTotals, lineCost, lineSell, revLetter, sellEach, suggestedSell, type LineMaths } from './estimate'
 
 const L = (p: Partial<LineMaths>): LineMaths => ({ qty: 1, unit_cost: 0, unit_sell: 0, hours_per_unit: 0, labour_cost_hr_pence: 0, labour_charge_hr_pence: 0, ...p })
 const T = { ohp_mode: 'combined' as const, ohp_pct: 0, ohp_materials_pct: 0, ohp_labour_pct: 0, contingency_pct: 0, discount_pct: 0, vat_rate: 20, reverse_charge: false }
@@ -48,6 +48,8 @@ describe('estimateTotals', () => {
     const l = L({ qty: 2, unit_cost: 300, unit_sell: 500 })
     const u = { mat: 20, lab: 20 }
     expect(suggestedSell(l, u)).toBe(600)
+    expect(sellEach(L({ unit_sell: 30.9 }), u)).toBe(37) // 37.08p rounds to the penny
+    expect(lineSell(L({ qty: 10, unit_sell: 30.9 }), u)).toBe(370)
     expect(lineSell(l, u)).toBe(1200)
     expect(lineSell({ ...l, sell_override: 550 }, u)).toBe(1100)
     expect(estimateTotals([l, { ...l, sell_override: 550 }], { ...T, ohp_pct: 20 }).linesPence).toBe(2300)

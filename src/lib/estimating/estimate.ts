@@ -39,8 +39,9 @@ export const suggestedSell = (l: LineMaths, u: Uplift = NO_UPLIFT) => {
   const mat = l.unit_sell + l.hours_per_unit * l.labour_charge_hr_pence - lab
   return (mat * (100 + u.mat)) / 100 + (lab * (100 + u.lab)) / 100
 }
-// what one unit actually sells for: the hand-set price if there is one, otherwise the suggestion
-export const sellEach = (l: LineMaths, u: Uplift = NO_UPLIFT) => (l.sell_override != null ? l.sell_override : suggestedSell(l, u))
+// what one unit actually sells for: the hand-set price if there is one, otherwise the suggestion. Always a whole number of pence
+// (two decimal places in pounds), so the price on screen times the quantity is exactly the line total.
+export const sellEach = (l: LineMaths, u: Uplift = NO_UPLIFT) => (l.sell_override != null ? roundHalfUp(l.sell_override) : roundHalfUp(suggestedSell(l, u)))
 export const lineSell = (l: LineMaths, u: Uplift = NO_UPLIFT) => roundHalfUp(l.qty * sellEach(l, u))
 export const lineHours = (l: Pick<LineMaths, 'qty' | 'hours_per_unit'>) => Math.round(l.qty * l.hours_per_unit * 1000) / 1000
 
