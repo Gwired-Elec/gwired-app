@@ -187,6 +187,6 @@ SQL goes in `supabase/` as numbered scripts, written phase by phase.
 
 - [x] Phase 0: dbp-app read, this plan written
 - [x] Phase 0 approved by Richard (27 Nov 2026, with defaults for open questions)
-- [~] Phase 1a: done = project scaffold, PWA shell (manifest, service worker), phone tab bar / iPad sidebar, branded login (password, magic link, forgot/reset, keep-signed-in, generic errors), permission flags, `001_foundation.sql`, Firebase hosting config. **Still to do in 1a:** invite users (Edge Function) + Settings > Users, PIN / Face ID unlock + auto-lock, TOTP 2FA, sign out all devices, lockout, offline unlock, iOS icons/splash (needs logo), Supabase + Firebase projects created and first deploy
+- [~] Phase 1a: done = project scaffold, PWA shell (manifest, service worker), phone tab bar / iPad sidebar, branded login (password, magic link, forgot/reset, keep-signed-in, generic errors), permission flags, `001_foundation.sql`, Firebase hosting config. Also done: Users screen + manage-users function, PIN + device Face ID app lock with auto-lock and PIN lockout, Supabase passkey sign-in, sign out of all devices, offline-safe profile. **Still to do in 1a:** TOTP 2FA for owner, iOS icons/splash (needs logo), Firebase project + first deploy, passkey RP settings for the live domain
 - [ ] Phase 1b: Dexie + sync engine, clients/contacts, jobs pipeline, activity log, seed data
 - [ ] Phases 2-10

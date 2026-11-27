@@ -40,6 +40,15 @@ export default function SignIn() {
     setBusy(false)
   }
 
+  async function passkeySignIn() {
+    setMsg(null)
+    setKeepSignedIn(keep)
+    const { error } = await supabase.auth.signInWithPasskey()
+    if (error && !/cancel|abort|not allowed/i.test(error.message)) {
+      setMsg({ kind: 'err', text: "That didn't work. Use your password, or add a passkey first from More > Security." + (import.meta.env.DEV ? ` [dev only: ${error.message}]` : '') })
+    }
+  }
+
   return (
     <div className="login">
       <div className="login-box">
@@ -62,6 +71,11 @@ export default function SignIn() {
             {busy ? 'Please wait…' : mode === 'password' ? 'Sign in' : mode === 'magic' ? 'Email me a sign-in link' : 'Email me a reset link'}
           </button>
         </form>
+        {mode === 'password' && !!window.PublicKeyCredential && (
+          <button type="button" className="btn" style={{ width: '100%', marginTop: 12 }} disabled={busy} onClick={passkeySignIn}>
+            Sign in with Face ID / passkey
+          </button>
+        )}
         <div className="links">
           {mode !== 'password' && <button className="link" onClick={() => (setMode('password'), setMsg(null))}>Back to password sign-in</button>}
           {mode === 'password' && <button className="link" onClick={() => (setMode('forgot'), setMsg(null))}>Forgot password?</button>}

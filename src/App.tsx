@@ -8,9 +8,13 @@ import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
 import More from './pages/More'
 import Users from './pages/Users'
+import Security from './pages/Security'
+import LockScreen from './components/LockScreen'
+import { useLock } from './lib/lock'
 
 export default function App() {
   const { loading, session, profile, recovering } = useAuth()
+  const { locked } = useLock()
 
   if (configError) return <div className="centre"><div className="card"><h1>Setup needed</h1><p>{configError}</p></div></div>
   if (loading) return <div className="centre"><p className="muted">Loading…</p></div>
@@ -29,6 +33,8 @@ export default function App() {
     return <NoAccess hasProfile={!!profile} />
   }
 
+  if (locked) return <LockScreen />
+
   return (
     <Routes>
       <Route element={<Layout />}>
@@ -38,6 +44,7 @@ export default function App() {
         <Route path="todos" element={<ComingSoon title="To-dos" phase="Phase 8" />} />
         <Route path="more" element={<More />} />
         <Route path="more/users" element={<Users />} />
+        <Route path="more/security" element={<Security />} />
         <Route path="login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

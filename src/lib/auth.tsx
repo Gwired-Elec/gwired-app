@@ -22,6 +22,7 @@ interface AuthState {
   doneRecovering: () => void
 }
 
+const PROFILE_KEY = 'gw-profile-'
 const Ctx = createContext<AuthState | null>(null)
 export const useAuth = () => {
   const v = useContext(Ctx)
@@ -36,8 +37,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [recovering, setRecovering] = useState(false)
 
   const loadProfile = useCallback(async (s: Session | null) => {
-    if (!s) return setProfile(null)
-    const { data } = await supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle()
+    if (!s) {
+      try {
+        Object.keys(localStorage).filter((k) => k.startsWith(PROFILE_KEY)).forEach((k) => localStorage.removeItem(k))
+      } catch {
+        /* ignore */
+      }
+      return setProfile(null)
+    }
+    const key = PROFILE_KEY + s.user.id
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle()
+    if (error) {
+      // offline or the connection dropped: use the copy kept on this device so the app still opens
+      try {
+        const copy = localStorage.getItem(key)
+        if (copy) return setProfile(JSON.parse(copy) as Profile)
+      } catch {
+        /* ignore */
+      }
+      return setProfile(null)
+    }
+    if (data) {
+      try {
+        localStorage.setItem(key, JSON.stringify(data))
+      } catch {
+        /* ignore */
+      }
+    }
     setProfile((data as Profile | null) ?? null)
   }, [])
 

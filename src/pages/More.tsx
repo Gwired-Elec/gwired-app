@@ -27,6 +27,7 @@ export default function More() {
         </div>
         {msg && <p className="err">{msg}</p>}
       </div>
+      <Link className="card linkcard" to="/more/security"><strong>Security</strong><span className="muted"> PIN, Face ID, auto-lock and passkeys</span></Link>
       {can('users') && (
         <Link className="card linkcard" to="/more/users"><strong>Users</strong><span className="muted"> Add staff and choose what they can see</span></Link>
       )}
