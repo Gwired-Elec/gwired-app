@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+// Strip invisible characters (a byte-order mark can sneak in when the values are copied into GitHub). Chrome ignores them,
+// but Safari on iPhone rejects the request outright.
+const tidy = (v: unknown) => (typeof v === 'string' ? v.replace(/[​-‍﻿]/g, '').trim() : undefined)
+const url = tidy(import.meta.env.VITE_SUPABASE_URL)
+const anonKey = tidy(import.meta.env.VITE_SUPABASE_ANON_KEY)
 
 // Shown on screen instead of a blank page if .env.local hasn't been filled in.
 export const configError =
