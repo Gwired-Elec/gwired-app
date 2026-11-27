@@ -73,7 +73,7 @@ export default function QuotePortal({ token, preview }: { token: string; preview
       </div>
 
       {data.state === 'accepted' && (
-        <div className="card notice"><h2 style={{ margin: 0 }}>Accepted ✓</h2><p style={{ marginBottom: 0 }}>{data.accepted ? <>Accepted by <strong>{data.accepted.name}</strong> on {fmtAt(data.accepted.at)}. </> : 'This quotation has been accepted. '}Thank you. We will be in touch to arrange the start.</p></div>
+        <div className="card notice"><h2 style={{ margin: 0 }}>Accepted ✓</h2><p style={{ marginBottom: 0 }}>{data.accepted ? <>Accepted by <strong>{data.accepted.name}</strong> on {fmtAt(data.accepted.at)}. </> : 'This quotation has been accepted. '}Thank you. We will be in touch to arrange the start and payment.</p></div>
       )}
       {data.state === 'expired' && (
         <div className="card notice"><h2 style={{ margin: 0 }}>This quotation has expired</h2><p style={{ marginBottom: 0 }}>Please contact us and we will confirm the price is still valid.</p>{contact}</div>
