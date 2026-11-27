@@ -10,8 +10,10 @@ export interface Estimate extends Row {
   status: 'draft' | 'issued' | 'accepted' | 'superseded'
   method: 'units' | 'point' | 'day'
   labour_rate_id: string | null
-  oh_pct: number
-  profit_pct: number
+  ohp_mode: 'combined' | 'split'
+  ohp_pct: number
+  ohp_materials_pct: number
+  ohp_labour_pct: number
   contingency_pct: number
   discount_pct: number
   vat_rate: number
@@ -45,7 +47,7 @@ const fixLine = (l: Line): Line => ({
   labour_cost_hr_pence: num(l.labour_cost_hr_pence), labour_charge_hr_pence: num(l.labour_charge_hr_pence), sort: num(l.sort),
 })
 const fixEst = (e: Estimate): Estimate => ({
-  ...e, rev: num(e.rev), oh_pct: num(e.oh_pct), profit_pct: num(e.profit_pct), contingency_pct: num(e.contingency_pct), discount_pct: num(e.discount_pct), vat_rate: num(e.vat_rate),
+  ...e, rev: num(e.rev), ohp_pct: num(e.ohp_pct), ohp_materials_pct: num(e.ohp_materials_pct), ohp_labour_pct: num(e.ohp_labour_pct), ohp_mode: e.ohp_mode === 'split' ? 'split' : 'combined', contingency_pct: num(e.contingency_pct), discount_pct: num(e.discount_pct), vat_rate: num(e.vat_rate),
 })
 
 // everything about one job's estimates in one go

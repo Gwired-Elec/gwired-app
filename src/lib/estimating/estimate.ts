@@ -5,9 +5,9 @@
 //
 // How the totals build up (shown step by step on screen):
 //   Lines (sell)  = sum of every line's sell price
-//   + Overheads   = oh_pct % of the lines
-//   + Profit      = profit_pct % of the lines
-//   + Contingency = contingency_pct % of (lines + overheads + profit)
+//   + Overheads & profit = ONE percentage of the lines (ohp_pct), or, in "split" mode, a percentage of the materials part
+//                           plus a different percentage of the labour part (ohp_materials_pct, ohp_labour_pct)
+//   + Contingency = contingency_pct % of (lines + overheads & profit)
 //   - Discount    = discount_pct % of all that
 //   = Net (the quote value, ex VAT)
 //   + VAT         = vat_rate % of net, or nothing under the domestic reverse charge
@@ -23,11 +23,15 @@ export interface LineMaths {
 }
 export const lineCost = (l: LineMaths) => roundHalfUp(l.qty * (l.unit_cost + l.hours_per_unit * l.labour_cost_hr_pence))
 export const lineSell = (l: LineMaths) => roundHalfUp(l.qty * (l.unit_sell + l.hours_per_unit * l.labour_charge_hr_pence))
+// the labour part of a line's sell price (hours at the charge rate, or a whole day-rate line); the rest is materials
+export const lineLabourSell = (l: LineMaths, kind?: string) => roundHalfUp(l.qty * (l.hours_per_unit * l.labour_charge_hr_pence + (kind === 'day' ? l.unit_sell : 0)))
 export const lineHours = (l: Pick<LineMaths, 'qty' | 'hours_per_unit'>) => Math.round(l.qty * l.hours_per_unit * 1000) / 1000
 
 export interface Terms {
-  oh_pct: number
-  profit_pct: number
+  ohp_mode: 'combined' | 'split'
+  ohp_pct: number
+  ohp_materials_pct: number
+  ohp_labour_pct: number
   contingency_pct: number
   discount_pct: number
   vat_rate: number
@@ -36,8 +40,7 @@ export interface Terms {
 export interface Totals {
   costPence: number
   linesPence: number
-  ohPence: number
-  profitPence: number
+  ohpPence: number
   contingencyPence: number
   grossPence: number
   discountPence: number
@@ -49,19 +52,24 @@ export interface Totals {
   hours: number
 }
 
-export function estimateTotals(lines: LineMaths[], t: Terms): Totals {
+export function estimateTotals(lines: (LineMaths & { kind?: string })[], t: Terms): Totals {
   const costPence = sum(lines.map(lineCost))
   const linesPence = sum(lines.map(lineSell))
-  const ohPence = percentOf(linesPence, t.oh_pct)
-  const profitPence = percentOf(linesPence, t.profit_pct)
-  const contingencyPence = percentOf(linesPence + ohPence + profitPence, t.contingency_pct)
-  const grossPence = linesPence + ohPence + profitPence + contingencyPence
+  let ohpPence: number
+  if (t.ohp_mode === 'split') {
+    const labourPence = sum(lines.map((l) => lineLabourSell(l, l.kind)))
+    ohpPence = percentOf(linesPence - labourPence, t.ohp_materials_pct) + percentOf(labourPence, t.ohp_labour_pct)
+  } else {
+    ohpPence = percentOf(linesPence, t.ohp_pct)
+  }
+  const contingencyPence = percentOf(linesPence + ohpPence, t.contingency_pct)
+  const grossPence = linesPence + ohpPence + contingencyPence
   const discountPence = percentOf(grossPence, t.discount_pct)
   const netPence = grossPence - discountPence
   const vatPence = t.reverse_charge ? 0 : percentOf(netPence, t.vat_rate)
   const marginPence = netPence - costPence
   return {
-    costPence, linesPence, ohPence, profitPence, contingencyPence, grossPence, discountPence, netPence, vatPence,
+    costPence, linesPence, ohpPence, contingencyPence, grossPence, discountPence, netPence, vatPence,
     totalPence: netPence + vatPence,
     marginPence,
     marginPct: netPence > 0 ? Math.round((marginPence / netPence) * 1000) / 10 : 0,

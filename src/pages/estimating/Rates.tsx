@@ -136,7 +136,7 @@ export function Defaults() {
       <form className="card" onSubmit={submit}>
         <div className="fieldgrid">
           {pct('default_markup_pct', 'Markup on materials', 'Used when a material has no markup of its own')}
-          {pct('oh_pct', 'Overheads')}
+          {pct('oh_pct', 'Overheads (added to profit for new estimates)')}
           {pct('profit_pct', 'Profit')}
           {pct('contingency_pct', 'Contingency')}
           {pct('vat_rate', 'VAT rate')}

@@ -16,7 +16,7 @@ describe('spreadToNet', () => {
 })
 
 describe('buildQuotePdf', () => {
-  const est = { id: 'e', job_id: 'j', rev: 2, name: null, status: 'draft', method: 'units', labour_rate_id: null, oh_pct: 10, profit_pct: 10, contingency_pct: 0, discount_pct: 0, vat_rate: 20, reverse_charge: false, notes: 'Thanks – “as discussed”.', issued_at: null } as unknown as Estimate
+  const est = { id: 'e', job_id: 'j', rev: 2, name: null, status: 'draft', method: 'units', labour_rate_id: null, ohp_mode: 'combined', ohp_pct: 20, ohp_materials_pct: 20, ohp_labour_pct: 20, contingency_pct: 0, discount_pct: 0, vat_rate: 20, reverse_charge: false, notes: 'Thanks – “as discussed”.', issued_at: null } as unknown as Estimate
   const sections = [{ id: 's', estimate_id: 'e', name: 'Works', sort: 10 }] as unknown as Section[]
   const lines = Array.from({ length: 80 }, (_, i) => ({ id: 'l' + i, estimate_id: 'e', section_id: 's', sort: i, kind: 'item', description: 'Socket outlet ' + i + ' ' + 'x'.repeat(40), qty: 2, unit: 'each', unit_cost: 500, unit_sell: 800, hours_per_unit: 0, labour_cost_hr_pence: 0, labour_charge_hr_pence: 0 })) as unknown as Line[]
   it('makes a multi-page PDF without crashing, with odd characters', async () => {

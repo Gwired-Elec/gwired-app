@@ -47,7 +47,8 @@ export default function EstimateTab({ job, user }: { job: Job; user: User }) {
       tbl: 'estimates', id,
       patch: {
         job_id: job.id, rev, status: 'draft', method, labour_rate_id: from?.labour_rate_id ?? labour!.find((l) => l.active !== false)?.id ?? null,
-        oh_pct: from?.oh_pct ?? settings.oh_pct, profit_pct: from?.profit_pct ?? settings.profit_pct, contingency_pct: from?.contingency_pct ?? settings.contingency_pct,
+        ohp_mode: from?.ohp_mode ?? 'combined', ohp_pct: from?.ohp_pct ?? settings.oh_pct + settings.profit_pct,
+        ohp_materials_pct: from?.ohp_materials_pct ?? settings.oh_pct + settings.profit_pct, ohp_labour_pct: from?.ohp_labour_pct ?? settings.oh_pct + settings.profit_pct, contingency_pct: from?.contingency_pct ?? settings.contingency_pct,
         discount_pct: from?.discount_pct ?? 0, vat_rate: from?.vat_rate ?? settings.vat_rate, reverse_charge: from?.reverse_charge ?? false, notes: from?.notes ?? null,
       },
     }]
@@ -183,6 +184,13 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     if (est.method === 'units' && (m.labour_hours ?? 0) > 0 && (rate?.charge_per_hour_pence ?? 0) === 0) notes.push(`The labour rate "${rate?.name ?? 'none'}" is £0 an hour, so labour on this line costs nothing. Set labour rates under More, Estimating data.`)
     await addLine(materialPatch(m, sectionId, est.method === 'units', notes))
     setWarns(notes)
+  }
+  // Enter on something that isn't in the database: it goes into the materials database now (no price yet) and onto the estimate
+  async function createAndAdd(text: string, sectionId: string) {
+    const id = await findOrCreateMaterial(text, 'each')
+    const markup = settings.default_markup_pct
+    await addLine(base(sectionId, { kind: 'material', description: text, unit: 'each', material_id: id, markup_pct: markup }))
+    setWarns([`"${text}" is now in the materials database with no price. Type its cost on the line and it is saved there, dated today.`])
   }
   async function addPoint(id: string, qty: number, sectionId: string) {
     const p = points!.find((x) => x.id === id)
@@ -371,7 +379,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
                   ))}
                 </div>
                 {adding?.section === s.id && (
-                  <AddPanel key={adding.mode + (adding.prefill ?? '')} mode={adding.mode} prefill={adding.prefill} onNewItem={(t) => setAdding({ section: s.id, mode: 'own', prefill: t })} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost}
+                  <AddPanel key={adding.mode + (adding.prefill ?? '')} mode={adding.mode} prefill={adding.prefill} onNewItem={(t) => setAdding({ section: s.id, mode: 'own', prefill: t })} onCreate={(t) => createAndAdd(t, s.id)} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost}
                     onMaterial={(m) => addMaterial(m, s.id)} onPoint={(id, q) => addPoint(id, q, s.id)} onDay={(id, d) => addDay(id, d, s.id)} onAssembly={(id) => addAssembly(id, s.id)} onPrelim={(id) => addPrelim(id, s.id)} onOwn={(f) => addOwn(f, s.id)} />
                 )}
                 {!sl.length && ordered.length > 1 && <button className="link small" onClick={() => remove('estimate_sections', s.id)}>Remove this empty section</button>}
@@ -431,6 +439,7 @@ function AddPanel(p: {
   mode: string
   prefill?: string
   onNewItem: (text: string) => void
+  onCreate: (text: string) => void
   materials: Material[]
   prices: ReturnType<typeof useAllPrices> & object
   points: NonNullable<ReturnType<typeof usePointRates>>
@@ -452,7 +461,7 @@ function AddPanel(p: {
   const n = Number(qty)
   const okQty = Number.isFinite(n) && n > 0
 
-  if (p.mode === 'material') return <div className="subform"><MaterialPicker materials={p.materials} prices={p.prices} staleDays={p.staleDays} defaultMarkup={p.defaultMarkup} seeCost={p.seeCost} onPick={p.onMaterial} onNew={p.onNewItem} /></div>
+  if (p.mode === 'material') return <div className="subform"><MaterialPicker materials={p.materials} prices={p.prices} staleDays={p.staleDays} defaultMarkup={p.defaultMarkup} seeCost={p.seeCost} onPick={p.onMaterial} onNew={p.onNewItem} onCreate={p.onCreate} /></div>
 
   const select = (opts: [string, string][], label: string) => (
     <>
@@ -518,7 +527,7 @@ function AddPanel(p: {
 
 // ---------------------------------------------------------------- terms and totals
 function Terms({ est, editable, onSet }: { est: Estimate; editable: boolean; onSet: (p: Record<string, unknown>) => void }) {
-  const pct = (key: 'oh_pct' | 'profit_pct' | 'contingency_pct' | 'discount_pct' | 'vat_rate', label: string) => (
+  const pct = (key: 'ohp_pct' | 'ohp_materials_pct' | 'ohp_labour_pct' | 'contingency_pct' | 'discount_pct' | 'vat_rate', label: string) => (
     <div className="f">
       <label htmlFor={'t' + key}>{label}</label>
       <input id={'t' + key} key={String(est[key])} type="text" inputMode="decimal" disabled={!editable} defaultValue={String(est[key])}
@@ -528,9 +537,14 @@ function Terms({ est, editable, onSet }: { est: Estimate; editable: boolean; onS
   return (
     <div className="card">
       <h2>Overheads, profit and VAT</h2>
+      <label htmlFor="ohm">Overheads and profit</label>
+      <select id="ohm" disabled={!editable} value={est.ohp_mode} onChange={(e) => onSet({ ohp_mode: e.target.value })}>
+        <option value="combined">One percentage on everything</option>
+        <option value="split">Separate percentages for materials and labour</option>
+      </select>
+      <p className="muted small">This is added on top of every line. The client never sees it as a separate line: it is built into their prices.</p>
       <div className="lgrid">
-        {pct('oh_pct', 'Overheads %')}
-        {pct('profit_pct', 'Profit %')}
+        {est.ohp_mode === 'split' ? <>{pct('ohp_materials_pct', 'On materials %')}{pct('ohp_labour_pct', 'On labour %')}</> : pct('ohp_pct', 'Overheads + profit %')}
         {pct('contingency_pct', 'Contingency %')}
         {pct('discount_pct', 'Discount %')}
         {pct('vat_rate', 'VAT %')}
@@ -550,8 +564,7 @@ function TotalsCard({ t, est, seeCost, methodName }: { t: Totals; est: Estimate;
       <table className="mini" style={{ width: '100%' }}>
         <tbody>
           {row('Lines', t.linesPence)}
-          {est.oh_pct > 0 && row(`Overheads ${est.oh_pct}%`, t.ohPence)}
-          {est.profit_pct > 0 && row(`Profit ${est.profit_pct}%`, t.profitPence)}
+          {t.ohpPence > 0 && row(est.ohp_mode === 'split' ? `Overheads and profit (materials ${est.ohp_materials_pct}%, labour ${est.ohp_labour_pct}%)` : `Overheads and profit ${est.ohp_pct}%`, t.ohpPence)}
           {est.contingency_pct > 0 && row(`Contingency ${est.contingency_pct}%`, t.contingencyPence)}
           {est.discount_pct > 0 && row(`Discount ${est.discount_pct}%`, t.discountPence, false, true)}
           {row('Net (the quote value)', t.netPence, true)}

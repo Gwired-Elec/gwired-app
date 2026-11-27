@@ -6,7 +6,7 @@ import { fmtUnit } from '../pages/estimating/Materials'
 
 // Type to find a material, tap to choose it. Shows each match's sell price and how old its price is, and says so when the
 // price is over the limit (about 6 months), so nobody builds an estimate on an old number without noticing.
-export default function MaterialPicker({ materials, prices, staleDays, defaultMarkup, seeCost, onPick, onNew }: {
+export default function MaterialPicker({ materials, prices, staleDays, defaultMarkup, seeCost, onPick, onNew, onCreate }: {
   materials: Material[]
   prices: Map<string, MaterialPrice[]>
   staleDays: number
@@ -14,6 +14,7 @@ export default function MaterialPicker({ materials, prices, staleDays, defaultMa
   seeCost: boolean
   onPick: (m: Material) => void
   onNew?: (text: string) => void // offered when nothing matches: add what was typed as a new item
+  onCreate?: (text: string) => void // Enter with nothing matching: add what was typed straight into the materials database
 }) {
   const [q, setQ] = useState('')
   const found = useMemo(() => {
@@ -24,7 +25,16 @@ export default function MaterialPicker({ materials, prices, staleDays, defaultMa
   return (
     <div>
       <label htmlFor="mp">Find a material</label>
-      <input id="mp" type="text" placeholder="Type at least 2 letters…" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+      <input id="mp" type="text" placeholder="Type at least 2 letters…" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off"
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          const t = q.trim()
+          if (t.length < 2) return
+          // Enter takes the first match, or, if nothing matches, adds what was typed as a new material
+          if (found.length) (onPick(found[0]), setQ(''))
+          else if (onCreate) (onCreate(t), setQ(''))
+        }} />
       {found.map((m) => {
         const best = bestPrice(prices.get(m.id) ?? [], m.preferred_supplier_id)
         const cost = best ? costPerUnit(best.price) : null
@@ -40,6 +50,7 @@ export default function MaterialPicker({ materials, prices, staleDays, defaultMa
       })}
       {q.trim().length >= 2 && !found.length && <p className="muted small">No materials match.</p>}
       {onNew && q.trim().length >= 2 && <button type="button" className="btn" onClick={() => onNew(q.trim())}>Not in the list? Add “{q.trim()}” as a new item</button>}
+      {onCreate && q.trim().length >= 2 && !found.length && <p className="muted small">Press Enter to add it straight to the materials database, then type its cost on the line.</p>}
     </div>
   )
 }
