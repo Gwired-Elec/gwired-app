@@ -3,9 +3,7 @@ import { cachedCompany, loadCompany } from '../../lib/company'
 import type { Job } from '../../lib/jobs'
 import { useClients } from '../../lib/jobs'
 import { getPhotoBlob, shrinkImage } from '../../lib/walkaround/photoStore'
-import type { QuoteClause } from '../../lib/estimating/quotePdf'
 import { buildSowPdf, buildSowXlsx, type SowInput, type SowPhoto } from '../../lib/walkaround/sow'
-import { db } from '../../lib/sync/db'
 import { commitAllDrafts, loadWalkaround, type Photo } from '../../lib/walkaround/data'
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -72,17 +70,6 @@ export default function SowExport({ job }: { job: Job }) {
         company, job: { job_number: job.job_number, title: job.title, site_address: job.site_address },
         client: client ? { name: client.name, address: client.address } : null, areas: sowAreas, showRates, date: new Date(), logoPng: logo,
       }
-      // the same assumptions and exclusions as the job's latest estimate; if there is no estimate yet, the library's standard ones
-      const ests = (await db().estimates.where('job_id').equals(job.id).filter((r) => !r.deleted_at).toArray()).sort((a, b) => Number(b.rev ?? 0) - Number(a.rev ?? 0))
-      let clauses: QuoteClause[] = []
-      if (ests.length) {
-        const rows = await db().estimate_clauses.where('estimate_id').equals(ests[0].id).filter((r) => !r.deleted_at).toArray()
-        clauses = rows.map((c) => ({ kind: c.kind as QuoteClause['kind'], title: String(c.title ?? ''), body: String(c.body ?? ''), sort: Number(c.sort ?? 0) }))
-      } else {
-        const lib = await db().clause_library.filter((r) => !r.deleted_at && r.active !== false && !!r.default_on).toArray()
-        clauses = lib.map((c) => ({ kind: c.kind as QuoteClause['kind'], title: String(c.title ?? ''), body: String(c.body ?? ''), sort: Number(c.sort ?? 0) }))
-      }
-      input.clauses = clauses
       const stem = 'Scope of works ' + (job.job_number ?? 'draft')
       if (kind === 'pdf') await deliver(new File([(await buildSowPdf(input)) as BlobPart], stem + '.pdf', { type: 'application/pdf' }))
       else await deliver(new File([await buildSowXlsx(input)], stem + '.xlsx', { type: XLSX }))
@@ -97,7 +84,7 @@ export default function SowExport({ job }: { job: Job }) {
   return (
     <div className="card">
       <h2>Scope of works</h2>
-      <p className="muted small">Made from the areas, notes, items and photos above, with the assumptions and exclusions from the job's estimate. Send it out as a PDF, or as an Excel sheet for pricing.</p>
+      <p className="muted small">Made from the areas, notes, items and photos above. Send it out as a PDF, or as an Excel sheet for pricing.</p>
       <label className="check"><input type="checkbox" checked={showRates} onChange={(e) => setShowRates(e.target.checked)} /> Include blank Rate and Total columns for pricing</label>
       <label className="check"><input type="checkbox" checked={withPhotos} onChange={(e) => setWithPhotos(e.target.checked)} /> Include the photos (PDF and Excel)</label>
       {err && <p className="err" role="alert">{err}</p>}
