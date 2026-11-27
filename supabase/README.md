@@ -25,8 +25,8 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 020_variation_photos.sql | photos on variation items | run |
 | 021_todos_diary.sql | to-dos, diary events, team list (Phase 8) | run |
 | 022_calendar_feed.sql | private calendar link for Apple Calendar (also deploy the diary-feed function) | run |
-| 023_xero.sql | Xero link (also deploy the xero function and add its secrets) | not yet |
-| 024_job_files.sql | files on a job (tech sheets, drawings) with a private storage bucket | not yet |
+| 023_xero.sql | Xero link (also deploy the xero function and add its secrets) | run |
+| 024_job_files.sql | files on a job (tech sheets, drawings) with a private storage bucket | run |
 | 025_job_costs.sql | job costs: labour from the diary (overridable), materials, misc, non-recoverable | run |
-| 026_quote_portal.sql | client quote links (also deploy the quote-portal function, Verify JWT off) | not yet |
+| 026_quote_portal.sql | client quote links (also deploy the quote-portal function, Verify JWT off) | run |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | run |
