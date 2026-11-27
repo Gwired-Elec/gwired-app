@@ -119,18 +119,32 @@ async function start(b: DocBase, title: string, sub: string, ref: string, extra:
     pages.forEach((p, i) => p.drawText(clean(`${co.name}  -  ${title.toLowerCase().replace(/^./, (c) => c.toUpperCase())} ${ref.replace(/^Ref /, '')}  -  page ${i + 1} of ${pages.length}`), { x: M, y: 22, size: 8, font, color: grey }))
     return pdf.save()
   }
-  return { setCols, row, sums, para, finish, gap: (n: number) => { y -= n }, M, R, need, text: (s: string, size = 9, f = font, color = ink) => text(s, M, size, f, color), down: (n: number) => { y -= n }, bold, font, ink, grey }
+  // small photos under a row, three across
+  const images = async (blobs: Blob[]) => {
+    const gw = 120, gh = 90
+    for (let i = 0; i < blobs.length; i += 3) {
+      const embedded = []
+      for (const b of blobs.slice(i, i + 3)) { try { embedded.push(await pdf.embedJpg(new Uint8Array(await b.arrayBuffer()))) } catch { /* skip unreadable */ } }
+      if (!embedded.length) continue
+      need(gh + 14)
+      embedded.forEach((img, k) => { const sc = Math.min(gw / img.width, gh / img.height); page.drawImage(img, { x: M + 28 + k * (gw + 10), y: y - img.height * sc + 6, width: img.width * sc, height: img.height * sc }) })
+      y -= gh + 12
+    }
+  }
+  return { images, setCols, row, sums, para, finish, gap: (n: number) => { y -= n }, M, R, need, text: (s: string, size = 9, f = font, color = ink) => text(s, M, size, f, color), down: (n: number) => { y -= n }, bold, font, ink, grey }
 }
 
 // ---------------------------------------------------------------- variation
-export interface VariationRow { description: string; qty: number; unit: string; rate: number; total: number }
+export interface VariationRow { description: string; qty: number; unit: string; rate: number; total: number; notes?: string | null; photos?: Blob[] }
 export async function buildVariationPdf(b: DocBase & { variation: Variation; rows: VariationRow[] }): Promise<Uint8Array> {
   const d = await start(b, 'VARIATION', 'Instruction / confirmation of variation to the contract', `Ref ${b.job.job_number ?? ''} ${vref(b.variation.number)}`.trim(), [`Status: ${b.variation.status}`])
-  d.text(b.variation.title || 'Variation', 11, d.bold)
-  d.down(14)
-  if (b.variation.description) { d.para(b.variation.description, 9, d.ink); d.down(6) }
   d.setCols([{ label: 'Item', x: 44, align: 'l' }, { label: 'Description', x: 72, align: 'l' }, { label: 'Qty', x: 330, align: 'r' }, { label: 'Unit', x: 338, align: 'l' }, { label: 'Rate', x: 440, align: 'r' }, { label: 'Total', x: 555, align: 'r' }])
-  b.rows.forEach((l, i) => d.row([String(i + 1), l.description, String(l.qty), l.unit, formatGBP(l.rate), formatGBP(l.total)], { wrapCol: 1 }))
+  for (let i = 0; i < b.rows.length; i++) {
+    const l = b.rows[i]
+    d.row([String(i + 1), l.description, String(l.qty), l.unit, formatGBP(l.rate), formatGBP(l.total)], { wrapCol: 1 })
+    if (l.notes) { d.down(-6); d.para(l.notes, 8, d.grey); d.down(4) }
+    if (l.photos?.length) await d.images(l.photos)
+  }
   const net = b.rows.reduce((a, l) => a + l.total, 0)
   d.sums([['Total of this variation, excluding VAT', formatGBP(net), true]])
   d.para('VAT is added at the applicable rate when this variation is included in an application for payment or invoice.')

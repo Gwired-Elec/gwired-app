@@ -9,9 +9,17 @@ import { contractItems } from '../../lib/commercial/data'
 import { useJobEstimates, type Estimate, type Line, type Section } from '../../lib/estimating/estimates'
 import { useClients, type Job } from '../../lib/jobs'
 import { formatGBP } from '../../lib/money'
+import { db } from '../../lib/sync/db'
+import { getPhotoBlob } from '../../lib/walkaround/photoStore'
+import type { Photo } from '../../lib/walkaround/data'
 import { newId, remove, save, saveBatch } from '../../lib/sync/store'
 import { Editor as PriceEditor } from '../estimating/EstimateTab'
 
+// a variation has no title of its own: it is named after its first item
+const label = (v: Variation, ests: Estimate[], lines: Line[]) => {
+  const e = ests.find((x) => x.variation_id === v.id)
+  return (e && lines.filter((l) => l.estimate_id === e.id).sort((a, b) => a.sort - b.sort)[0]?.description) || 'Variation'
+}
 const STATUS: [Variation['status'], string][] = [['draft', 'Draft'], ['issued', 'Issued to client'], ['approved', 'Approved'], ['rejected', 'Rejected']]
 
 export default function VariationsTab({ job }: { job: Job }) {
@@ -59,7 +67,7 @@ export default function VariationsTab({ job }: { job: Job }) {
       {data.variations.map((v) => (
         <div className="card" key={v.id}>
           <button className="linklike" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(open === v.id ? null : v.id)} aria-expanded={open === v.id}>
-            <div className="rowtop"><strong>{vref(v.number)} {v.title || 'Untitled variation'}</strong><span>{formatGBP(values.get(v.id) ?? 0)}</span></div>
+            <div className="rowtop"><strong>{vref(v.number)} {label(v, est.varEstimates, est.lines)}</strong><span>{formatGBP(values.get(v.id) ?? 0)}</span></div>
             <span className="muted small">{STATUS.find(([k]) => k === v.status)?.[1]}</span>
           </button>
           {open === v.id && <VarEditor job={job} v={v} total={values.get(v.id) ?? 0} edit={edit} user={user} estimate={est.varEstimates.find((e) => e.variation_id === v.id)} sections={est.sections} lines={est.lines} make={() => newEstimateFor(v.id)} onGone={() => setOpen(null)} />}
@@ -73,13 +81,10 @@ function VarEditor({ job, v, total, edit, user, estimate, sections, lines, make,
   job: Job; v: Variation; total: number; edit: boolean; user: { id: string; name: string }; estimate?: Estimate; sections: Section[]; lines: Line[]; make: () => Promise<void>; onGone: () => void
 }) {
   const clients = useClients()
-  const [title, setTitle] = useState(v.title)
-  const [desc, setDesc] = useState(v.description ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [ask, setAsk] = useState(false) // the "how much was accepted?" box
   const [acc, setAcc] = useState(0)
-  const locked = !edit || v.status === 'approved'
   // a variation made before pricing was added to variations gets its estimate the first time it is opened
   const making = useRef(false)
   useEffect(() => { if (!estimate && edit && !making.current) { making.current = true; void make() } }, [estimate, edit]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,19 +98,20 @@ function VarEditor({ job, v, total, edit, user, estimate, sections, lines, make,
       // the same lines the estimate has, with the price spread so they add up exactly (as on the quote)
       const { items } = contractItems(estimate, sections, lines)
       const byId = new Map(items.map((i) => [i.key, i.pence]))
-      const rows = lines.filter((l) => l.estimate_id === estimate.id).sort((a, b) => sections.findIndex((s) => s.id === a.section_id) - sections.findIndex((s) => s.id === b.section_id) || a.sort - b.sort).map((l) => {
+      const mine = lines.filter((l) => l.estimate_id === estimate.id).sort((a, b) => sections.findIndex((s) => s.id === a.section_id) - sections.findIndex((s) => s.id === b.section_id) || a.sort - b.sort)
+      const photos = (await db().walkaround_photos.where('line_id').anyOf(mine.map((l) => l.id)).filter((p) => !p.deleted_at).toArray()) as unknown as Photo[]
+      const rows = []
+      for (const l of mine) {
         const t = byId.get('q:' + l.id) ?? 0
-        return { description: l.description, qty: l.qty, unit: l.unit, rate: l.qty ? Math.round(t / l.qty) : t, total: t }
-      })
-      await deliverPdf(await buildVariationPdf({ ...base, variation: { ...v, title, description: desc }, rows }), `Variation ${vref(v.number)} ${job.job_number ?? ''}.pdf`.replace(/\s+/g, ' '))
+        const blobs: Blob[] = []
+        for (const p of photos.filter((x) => x.line_id === l.id).sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0))) { const b = await getPhotoBlob(p); if (b) blobs.push(b) }
+        rows.push({ description: l.description, qty: l.qty, unit: l.unit, rate: l.qty ? Math.round(t / l.qty) : t, total: t, notes: l.notes, photos: blobs })
+      }
+      await deliverPdf(await buildVariationPdf({ ...base, variation: v, rows }), `Variation ${vref(v.number)} ${job.job_number ?? ''}.pdf`.replace(/\s+/g, ' '))
     } catch (e) { setErr((e as Error).message || 'Could not make the PDF.') } finally { setBusy(false) }
   }
   return (
     <div style={{ marginTop: 12 }}>
-      <label htmlFor={'vt' + v.id}>Title</label>
-      <input id={'vt' + v.id} type="text" disabled={locked} value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== v.title && save('variations', v.id, { title })} placeholder="e.g. Extra sockets to kitchen" />
-      <label htmlFor={'vd' + v.id}>What changed and why</label>
-      <textarea id={'vd' + v.id} rows={3} disabled={locked} value={desc} onChange={(e) => setDesc(e.target.value)} onBlur={() => desc !== (v.description ?? '') && save('variations', v.id, { description: desc || null })} />
       <label htmlFor={'vs' + v.id}>Status</label>
       <select id={'vs' + v.id} disabled={!edit} value={v.status} onChange={(e) => (e.target.value === 'approved' ? (setAcc(total), setAsk(true)) : save('variations', v.id, { status: e.target.value, approved_pence: null }))}>
         {STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -121,7 +127,8 @@ function VarEditor({ job, v, total, edit, user, estimate, sections, lines, make,
       )}
       {v.status === 'approved' && !ask && <p className="muted small">Approved at {formatGBP(acceptedValue(v, total))}{acceptedValue(v, total) < total ? ` of ${formatGBP(total)} priced (discount ${formatGBP(total - acceptedValue(v, total))})` : ''}. Approved variations are locked: change the status back to Issued to edit it.</p>}
 
-      <h3 style={{ marginTop: 16 }}>Pricing</h3>
+      <h3 style={{ marginTop: 16 }}>Items</h3>
+      <p className="muted small">Add each item below with a description and cost. Every item can have a note and photos.</p>
       {estimate
         ? <PriceEditor job={job} est={estimate} sections={sections.filter((s) => s.estimate_id === estimate.id)} lines={lines.filter((l) => l.estimate_id === estimate.id)} clauses={[]} library={[]} others={[]} user={user} canEdit={edit} variation={{ locked: v.status === 'approved' }} />
         : <p className="muted small">Setting up pricing…</p>}

@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import LinePhotos from '../commercial/LinePhotos'
+import type { Photo } from '../../lib/walkaround/data'
 import MaterialPicker from '../../components/MaterialPicker'
 import { useWalkaround } from '../walkaround/WalkaroundTab'
 import { useAuth } from '../../lib/auth'
@@ -143,6 +146,8 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
   const assemblies = useAssemblies()
   const prelims = usePrelims()
   const walk = useWalkaround(job.id)
+  // photos on the items of a variation (variation pricing only)
+  const linePhotos = useLiveQuery(async () => (variation && lines.length ? ((await db().walkaround_photos.where('line_id').anyOf(lines.map((l) => l.id)).filter((p) => !p.deleted_at).toArray()) as unknown as Photo[]).sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0)) : []), [variation, lines.map((l) => l.id).join(',')])
   const statuses = useStatuses()
   const reasons = useReasons()
   const [askStatus, statusDialog] = useStatusFlow(statuses, reasons, user)
@@ -435,7 +440,7 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
             </div>
             {!sl.length && <p className="muted">Nothing in this section yet.</p>}
             {sl.map((l) => (
-              <LineCard key={l.id} line={l} uplift={uplift} editable={editable} seeCost={seeCost} staleDays={settings.stale_days} onEdit={(p) => editLine(l, p)} onCost={(t) => newCost(l, t)} onSell={(t) => newSell(l, t)} onRemove={() => remove('estimate_lines', l.id)} />
+              <LineCard key={l.id} line={l} uplift={uplift} editable={editable} seeCost={seeCost} staleDays={settings.stale_days} onEdit={(p) => editLine(l, p)} onCost={(t) => newCost(l, t)} onSell={(t) => newSell(l, t)} onRemove={() => remove('estimate_lines', l.id)} extra={variation ? <LinePhotos jobId={job.id} lineId={l.id} photos={(linePhotos ?? []).filter((p) => p.line_id === l.id)} editable={editable} /> : undefined} />
             ))}
             {editable && (
               <>
@@ -470,8 +475,8 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
 }
 
 // ---------------------------------------------------------------- one line
-function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCost, onSell, onRemove }: {
-  line: Line; uplift: Uplift; editable: boolean; seeCost: boolean; staleDays: number
+function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCost, onSell, onRemove, extra }: {
+  extra?: ReactNode; line: Line; uplift: Uplift; editable: boolean; seeCost: boolean; staleDays: number
   onEdit: (p: Record<string, unknown>) => void; onCost: (t: string) => void; onSell: (t: string) => void; onRemove: () => void
 }) {
   const hours = lineHours(l)
@@ -492,7 +497,8 @@ function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCos
         {(l.kind === 'material' || l.hours_per_unit > 0) && <div className="f"><label>Hours each</label>
           <input key={'h' + l.hours_per_unit} type="text" inputMode="decimal" defaultValue={String(l.hours_per_unit)} disabled={!editable} onBlur={(e) => { const n = num(e.target.value); if (Number.isFinite(n) && n >= 0 && n !== l.hours_per_unit) onEdit({ hours_per_unit: n }) }} /></div>}
       </div>
-      <input key={'n' + (l.notes ?? '')} type="text" defaultValue={l.notes ?? ''} disabled={!editable} placeholder="Note on the quote (optional)" aria-label="Note on the quote" style={{ marginTop: 8 }} onBlur={(e) => e.target.value.trim() !== (l.notes ?? '') && onEdit({ notes: e.target.value.trim() || null })} />
+      <input key={'n' + (l.notes ?? '')} type="text" defaultValue={l.notes ?? ''} disabled={!editable} placeholder="Note (optional)" aria-label="Note on the quote" style={{ marginTop: 8 }} onBlur={(e) => e.target.value.trim() !== (l.notes ?? '') && onEdit({ notes: e.target.value.trim() || null })} />
+      {extra}
       <p className="small muted" style={{ margin: '4px 0 0' }}>
         {[
           seeCost && <span key="c">cost {formatGBP(lineCost(l))}</span>,

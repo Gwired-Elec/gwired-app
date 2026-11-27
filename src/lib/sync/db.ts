@@ -67,7 +67,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   walkarounds: ['job_id', 'title', 'visit_date', 'notes', 'deleted_at'],
   walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
   walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
-  walkaround_photos: ['area_id', 'element_id', 'path', 'original_path', 'caption', 'sort', 'deleted_at'],
+  walkaround_photos: ['area_id', 'element_id', 'line_id', 'path', 'original_path', 'caption', 'sort', 'deleted_at'],
   variations: ['job_id', 'number', 'title', 'description', 'status', 'var_date', 'approved_pence', 'deleted_at'],
   variation_lines: ['variation_id', 'sort', 'description', 'qty', 'unit', 'rate_pence', 'deleted_at'],
   applications: ['job_id', 'number', 'status', 'app_date', 'period_to', 'retention_pct', 'retention_release_pence', 'cis_on', 'cis_rate', 'cis_labour_pct', 'reverse_charge', 'vat_rate', 'notes', 'paid_pence', 'paid_date', 'deleted_at'],
@@ -205,6 +205,10 @@ export class GwDb extends Dexie {
       applications: 'id, job_id',
       application_lines: 'id, application_id',
       invoices: 'id, job_id',
+    })
+    // version 8: photos on variation items
+    this.version(8).stores({
+      walkaround_photos: 'id, area_id, line_id',
     })
   }
 }

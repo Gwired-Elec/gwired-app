@@ -3,7 +3,7 @@
 import { db, type Row } from '../sync/db'
 
 export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
-export interface Photo extends Row { area_id: string; element_id: string | null; path: string; original_path: string | null; caption: string | null; sort: number }
+export interface Photo extends Row { area_id: string; line_id?: string | null; element_id: string | null; path: string; original_path: string | null; caption: string | null; sort: number }
 export interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
 
 const alive = (r: Row) => !r.deleted_at

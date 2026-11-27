@@ -67,11 +67,11 @@ export default function WalkaroundTab({ job }: { job: Job }) {
 // A picture the person has accepted (already shrunk by the preview screen). If it was marked up, the untouched picture is kept
 // too so the markup can be removed later. Saved on the device first; the upload happens when there is signal.
 export interface Kept { blob: Blob; original?: Blob }
-async function attachPhotos(items: Kept[], jobId: string, areaId: string, elementId: string, firstSort: number) {
+export async function attachPhotos(items: Kept[], jobId: string, areaId: string | null, elementId: string | null, firstSort: number, extra: Record<string, unknown> = {}) {
   let sort = firstSort
   for (const it of items) {
     const id = newId()
-    const fields: Record<string, unknown> = { area_id: areaId, element_id: elementId, sort }
+    const fields: Record<string, unknown> = { area_id: areaId, element_id: elementId, sort, ...extra }
     if (it.original) {
       fields.original_path = `${jobId}/${id}.jpg`
       fields.path = `${jobId}/${id}-m.jpg`
@@ -236,7 +236,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
 }
 
 // a small thumbnail; tap it to open the photo full screen (delete, mark up, caption)
-function PhotoThumb({ photo: p }: { photo: Photo }) {
+export function PhotoThumb({ photo: p }: { photo: Photo }) {
   const url = usePhotoUrl(p)
   const [open, setOpen] = useState(false)
   const [waiting, setWaiting] = useState(false)
