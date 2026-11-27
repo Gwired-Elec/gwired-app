@@ -62,7 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       session,
       profile,
-      recovering,
+      // arrived from a reset link, or signed in with a temporary password: must choose a new password first
+      recovering: recovering || !!session?.user.user_metadata?.must_change_password,
       can: (p) => !!profile?.active && !!profile.permissions?.[p],
       signOut: async () => {
         await supabase.auth.signOut()

@@ -7,6 +7,7 @@ import ResetPassword from './pages/ResetPassword'
 import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
 import More from './pages/More'
+import Users from './pages/Users'
 
 export default function App() {
   const { loading, session, profile, recovering } = useAuth()
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="diary" element={<ComingSoon title="Diary" phase="Phase 8" />} />
         <Route path="todos" element={<ComingSoon title="To-dos" phase="Phase 8" />} />
         <Route path="more" element={<More />} />
+        <Route path="more/users" element={<Users />} />
         <Route path="login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

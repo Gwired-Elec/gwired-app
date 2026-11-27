@@ -70,3 +70,16 @@ label.check input { width: 22px; height: 22px; }
   .top { display: none; }
   .content { padding-bottom: 24px; }
 }
+
+/* users / settings screens */
+h2 { font-size: 1.15rem; margin: 0 0 8px; }
+select { width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); }
+a { color: inherit; }
+.linkcard { display: block; text-decoration: none; }
+.linkcard span { display: block; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.rowtop { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.permgrid { display: grid; grid-template-columns: 1fr; gap: 0; margin-top: 4px; }
+@media (min-width: 600px) { .permgrid { grid-template-columns: 1fr 1fr; } }
+.notice { border-color: var(--red); }
+.pw { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.4rem; letter-spacing: 0.05em; margin: 8px 0; user-select: all; }

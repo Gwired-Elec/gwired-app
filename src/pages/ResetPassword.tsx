@@ -16,7 +16,7 @@ export default function ResetPassword() {
     if (pw.length < 10) return setErr('Use at least 10 characters.')
     if (pw !== pw2) return setErr("The two passwords don't match.")
     setBusy(true)
-    const { error } = await supabase.auth.updateUser({ password: pw })
+    const { error } = await supabase.auth.updateUser({ password: pw, data: { must_change_password: false } })
     setBusy(false)
     if (error) return setErr(error.message)
     doneRecovering()

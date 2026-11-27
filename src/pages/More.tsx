@@ -1,17 +1,37 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { signOutEverywhere } from '../lib/users'
 
 export default function More() {
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, can } = useAuth()
+  const [msg, setMsg] = useState('')
   return (
     <>
       <h1>More</h1>
       <div className="card">
         <p><strong>{profile?.full_name ?? profile?.email}</strong></p>
         <p className="muted">{profile?.email}</p>
-        <button className="btn" onClick={signOut}>Sign out</button>
+        <div className="actions">
+          <button className="btn" onClick={signOut}>Sign out</button>
+          <button
+            className="btn"
+            onClick={async () => {
+              const r = await signOutEverywhere()
+              if (r.ok) await signOut()
+              else setMsg(r.detail ?? 'Failed')
+            }}
+          >
+            Sign out of all devices
+          </button>
+        </div>
+        {msg && <p className="err">{msg}</p>}
       </div>
+      {can('users') && (
+        <Link className="card linkcard" to="/more/users"><strong>Users</strong><span className="muted"> Add staff and choose what they can see</span></Link>
+      )}
       <div className="card">
-        <p className="muted">Settings, users, clients, materials and the other sections will be listed here as they are built.</p>
+        <p className="muted">Clients, materials, settings and the other sections will be listed here as they are built.</p>
       </div>
     </>
   )
