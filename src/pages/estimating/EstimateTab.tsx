@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import LinePhotos from '../commercial/LinePhotos'
 import type { Photo } from '../../lib/walkaround/data'
@@ -14,7 +15,7 @@ import { perUnitText, useJobEstimates, type EstClause, type Estimate, type Line,
 import { planJobPrice } from '../../lib/estimating/learn'
 import { bestPrice, costPerUnit, isStale, priceAndPer, sellPerUnit } from '../../lib/estimating/pricing'
 import type { Job } from '../../lib/jobs'
-import { formatGBP } from '../../lib/money'
+import { formatGBP, parsePounds } from '../../lib/money'
 import { db, WRITABLE, type SyncTable } from '../../lib/sync/db'
 import { logActivity, newId, remove, save, saveBatch } from '../../lib/sync/store'
 import { METHODS, hourlyCharge, hourlyCost } from '../../lib/estimating/data'
@@ -27,7 +28,7 @@ import { useClients, useReasons, useStatuses, useStatusFlow } from '../../lib/jo
 const today = () => new Date().toISOString().slice(0, 10)
 const r4 = (n: number) => Number(n.toFixed(4))
 type User = { id: string; name: string }
-const MODES: [string, string][] = [['material', 'Material'], ['point', 'Price per point'], ['day', 'Day rate'], ['assembly', 'Assembly'], ['prelim', 'Prelim'], ['own', 'Own item']]
+const MODES: [string, string][] = [['material', 'Material'], ['point', 'Price per point'], ['day', 'Day rate'], ['assembly', 'Assembly'], ['prelim', 'Prelim'], ['own', 'Other']]
 
 // ---------------------------------------------------------------- the Estimate tab on a job
 export default function EstimateTab({ job, user }: { job: Job; user: User }) {
@@ -549,6 +550,9 @@ function AddPanel(p: {
   const [own, setOwn] = useState({ description: p.prefill ?? '', qty: '1', unit: 'each', cost: '', sell: '' })
   const [err, setErr] = useState('')
   const [night, setNight] = useState(false)
+  const nav = useNavigate()
+  const [nw, setNw] = useState({ name: '', sell: '', cost: '', kind: 'fixed', amount: '', percent: '' })
+  const [nwErr, setNwErr] = useState('')
   const n = Number(qty)
   const okQty = Number.isFinite(n) && n > 0
   // the price the line will get if Sell each is left blank: cost + markup, then overheads and profit, to the penny
@@ -563,16 +567,67 @@ function AddPanel(p: {
       <select id="ap" value={pick} onChange={(e) => setPick(e.target.value)}>
         <option value="">Choose…</option>
         {opts.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        <option value="__new">＋ Add a new one…</option>
       </select>
     </>
   )
+  const adding = pick === '__new'
+  const nameField = (
+    <>
+      <label htmlFor="nwn">Name</label>
+      <input id="nwn" type="text" value={nw.name} onChange={(e) => setNw({ ...nw, name: e.target.value })} />
+    </>
+  )
+  const nwButtons = (onSave: () => void, label: string) => (
+    <>
+      {nwErr && <p className="err" role="alert">{nwErr}</p>}
+      <div className="actions tight">
+        <button type="button" className="btn primary" onClick={onSave}>{label}</button>
+        <button type="button" className="btn" onClick={() => { setPick(''); setNwErr('') }}>Cancel</button>
+      </div>
+    </>
+  )
+  async function saveNewPoint() {
+    const sell = parsePounds(nw.sell); const cost = nw.cost.trim() ? parsePounds(nw.cost) : 0
+    if (!nw.name.trim() || sell == null || cost == null) return setNwErr('Add a name and a sell price.')
+    const id = newId()
+    await save('point_rates', id, { name: nw.name.trim(), unit: 'point', sell_pence: sell, cost_pence: cost, active: true })
+    setNw({ ...nw, name: '', sell: '', cost: '' }); setNwErr(''); setPick(id)
+  }
+  async function saveNewPrelim() {
+    const amount = nw.kind === 'fixed' ? parsePounds(nw.amount) : 0; const pc = Number(nw.percent)
+    if (!nw.name.trim() || (nw.kind === 'fixed' ? amount == null : !(Number.isFinite(pc) && pc > 0))) return setNwErr(nw.kind === 'fixed' ? 'Add a name and an amount.' : 'Add a name and a percentage.')
+    const id = newId()
+    await save('prelim_items', id, { name: nw.name.trim(), kind: nw.kind, amount_pence: amount ?? 0, percent: nw.kind === 'percent' ? pc : 0, active: true })
+    setNw({ ...nw, name: '', amount: '', percent: '' }); setNwErr(''); setPick(id)
+  }
+  async function saveNewAssembly() {
+    if (!nw.name.trim()) return setNwErr('Add a name.')
+    const id = newId()
+    await save('assemblies', id, { name: nw.name.trim(), extra_labour_hours: 0, active: true })
+    nav(`/more/estimating/assemblies/${id}`)
+  }
   const qtyField = (label: string) => (<><label htmlFor="aq">{label}</label><input id="aq" type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></>)
 
   if (p.mode === 'point') return (
     <div className="subform">
       {select(p.points.filter((x) => x.active !== false).map((x) => [x.id, `${x.name} (${formatGBP(x.sell_pence)})`]), 'Point type')}
-      {qtyField('How many')}
-      <button className="btn primary" disabled={!pick || !okQty} onClick={() => (p.onPoint(pick, n), setPick(''))}>Add</button>
+      {adding ? (
+        <>
+          {nameField}
+          <div className="lgrid">
+            <div className="f"><label htmlFor="nws">Sell price £</label><input id="nws" type="text" inputMode="decimal" value={nw.sell} onChange={(e) => setNw({ ...nw, sell: e.target.value })} /></div>
+            {p.seeCost && <div className="f"><label htmlFor="nwc">Cost to you £</label><input id="nwc" type="text" inputMode="decimal" value={nw.cost} onChange={(e) => setNw({ ...nw, cost: e.target.value })} /></div>}
+          </div>
+          <p className="muted small">Saved to your point rates for next time. Then pick it and say how many.</p>
+          {nwButtons(saveNewPoint, 'Save point rate')}
+        </>
+      ) : (
+        <>
+          {qtyField('How many')}
+          <button className="btn primary" disabled={!pick || !okQty} onClick={() => (p.onPoint(pick, n), setPick(''))}>Add</button>
+        </>
+      )}
     </div>
   )
   if (p.mode === 'day') return (
@@ -590,13 +645,33 @@ function AddPanel(p: {
   if (p.mode === 'assembly') return (
     <div className="subform">
       {select(p.assemblies.filter((x) => x.active !== false).map((x) => [x.id, x.name]), 'Assembly')}
-      <button className="btn primary" disabled={!pick} onClick={() => (p.onAssembly(pick), setPick(''))}>Add the whole kit</button>
+      {adding ? (
+        <>
+          {nameField}
+          <p className="muted small">This makes an empty assembly and opens it so you can add its materials. Your estimate is saved; come back to it from the job.</p>
+          {nwButtons(saveNewAssembly, 'Make it and fill it')}
+        </>
+      ) : <button className="btn primary" disabled={!pick} onClick={() => (p.onAssembly(pick), setPick(''))}>Add the whole kit</button>}
     </div>
   )
   if (p.mode === 'prelim') return (
     <div className="subform">
       {select(p.prelims.filter((x) => x.active !== false).map((x) => [x.id, x.kind === 'fixed' ? `${x.name} (${formatGBP(x.amount_pence)})` : `${x.name} (${x.percent}%)`]), 'Prelim')}
-      <button className="btn primary" disabled={!pick} onClick={() => (p.onPrelim(pick), setPick(''))}>Add</button>
+      {adding ? (
+        <>
+          {nameField}
+          <label htmlFor="nwk">Charged as</label>
+          <select id="nwk" value={nw.kind} onChange={(e) => setNw({ ...nw, kind: e.target.value })}>
+            <option value="fixed">Fixed amount</option>
+            <option value="percent">% of direct cost</option>
+          </select>
+          {nw.kind === 'fixed'
+            ? <><label htmlFor="nwa">Amount £</label><input id="nwa" type="text" inputMode="decimal" value={nw.amount} onChange={(e) => setNw({ ...nw, amount: e.target.value })} /></>
+            : <><label htmlFor="nwp">Percent</label><input id="nwp" type="text" inputMode="decimal" value={nw.percent} onChange={(e) => setNw({ ...nw, percent: e.target.value })} /></>}
+          <p className="muted small">Saved to your prelims list for next time. Then pick it and tap Add.</p>
+          {nwButtons(saveNewPrelim, 'Save prelim')}
+        </>
+      ) : <button className="btn primary" disabled={!pick} onClick={() => (p.onPrelim(pick), setPick(''))}>Add</button>}
     </div>
   )
   // own item

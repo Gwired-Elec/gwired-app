@@ -59,7 +59,7 @@ export default function VariationsTab({ job }: { job: Job }) {
     <>
       <div className="card">
         <h2>Variations</h2>
-        <p className="muted small">Changes to the work after the quote was accepted. Each is priced like an estimate: materials, price per point, day rates, assemblies or your own items. Once a variation is marked Approved it is added to the contract and appears on the next application for payment.</p>
+        <p className="muted small">Changes to the work after the quote was accepted. Each is priced like an estimate: materials, price per point, day rates, assemblies or other items. Once a variation is marked Approved it is added to the contract and appears on the next application for payment.</p>
         <p>Approved so far: <strong>{formatGBP(approved)}</strong> excluding VAT</p>
         {edit && <button className="btn primary" onClick={add}>+ New variation</button>}
       </div>
