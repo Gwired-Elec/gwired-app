@@ -4,12 +4,15 @@ import { useAuth } from '../lib/auth'
 import { JOB_TYPES, useClients } from '../lib/jobs'
 import { logActivity, newId, save } from '../lib/sync/store'
 
+const NEW = '__new'
+
 export default function NewJob() {
   const { can, profile } = useAuth()
   const nav = useNavigate()
   const clients = useClients()
   const [title, setTitle] = useState('')
   const [clientId, setClientId] = useState('')
+  const [nc, setNc] = useState({ name: '', client_type: 'domestic', email: '', phone: '', address: '' }) // the new client, if adding one here
   const [site, setSite] = useState('')
   const [type, setType] = useState('domestic')
   const [source, setSource] = useState('')
@@ -17,9 +20,12 @@ export default function NewJob() {
   const [busy, setBusy] = useState(false)
 
   if (!can('jobs.edit')) return <><h1>New job</h1><p className="muted">You don't have permission to create jobs.</p></>
+  const canAddClient = can('clients.edit')
+  const adding = clientId === NEW
 
   function pickClient(id: string) {
     setClientId(id)
+    if (id === NEW) return
     const c = clients?.find((x) => x.id === id)
     if (c) {
       if (!site && c.address) setSite(c.address)
@@ -27,15 +33,32 @@ export default function NewJob() {
     }
   }
 
+  function setNewClient(k: keyof typeof nc, v: string) {
+    setNc((x) => ({ ...x, [k]: v }))
+    if (k === 'client_type') setType(v === 'commercial' ? 'commercial' : 'domestic')
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
+    let cid: string | null = clientId && !adding ? clientId : null
+    if (adding) {
+      // the new client is saved first, so it reaches the server before the job that points at it
+      cid = newId()
+      await save('clients', cid, {
+        name: nc.name.trim(),
+        client_type: nc.client_type,
+        email: nc.email.trim() || null,
+        phone: nc.phone.trim() || null,
+        address: nc.address.trim() || null,
+      })
+    }
     const id = newId()
     // job_number is left empty: the server assigns the next GW-year-number when the job first syncs (so two devices never clash)
     await save('jobs', id, {
       title: title.trim(),
-      client_id: clientId || null,
-      site_address: site.trim() || null,
+      client_id: cid,
+      site_address: site.trim() || (adding ? nc.address.trim() : '') || null,
       job_type: type,
       source: source.trim() || null,
       notes: notes.trim() || null,
@@ -52,14 +75,36 @@ export default function NewJob() {
       <form className="card" onSubmit={submit}>
         <label htmlFor="t">Job title</label>
         <input id="t" type="text" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Full rewire, 14 Elm Road" />
+
         <label htmlFor="c">Client</label>
         <select id="c" value={clientId} onChange={(e) => pickClient(e.target.value)}>
           <option value="">No client yet</option>
           {clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {canAddClient && <option value={NEW}>+ Add new client…</option>}
         </select>
-        {can('clients.edit') && <p className="small"><Link to="/clients/new">+ Add a new client</Link></p>}
+
+        {adding && (
+          <div className="subform">
+            <h2>New client</h2>
+            <label htmlFor="ncn">Client name</label>
+            <input id="ncn" type="text" required autoFocus value={nc.name} onChange={(e) => setNewClient('name', e.target.value)} />
+            <label htmlFor="nct">Type</label>
+            <select id="nct" value={nc.client_type} onChange={(e) => setNewClient('client_type', e.target.value)}>
+              <option value="domestic">Domestic</option>
+              <option value="commercial">Commercial</option>
+            </select>
+            <label htmlFor="nce">Email</label>
+            <input id="nce" type="email" inputMode="email" autoComplete="off" value={nc.email} onChange={(e) => setNewClient('email', e.target.value)} />
+            <label htmlFor="ncp">Phone</label>
+            <input id="ncp" type="text" inputMode="tel" value={nc.phone} onChange={(e) => setNewClient('phone', e.target.value)} />
+            <label htmlFor="nca">Client address</label>
+            <input id="nca" type="text" value={nc.address} onChange={(e) => setNewClient('address', e.target.value)} />
+            <p className="muted small">Saved with the job. You can add contacts and more detail later under More, then Clients.</p>
+          </div>
+        )}
+
         <label htmlFor="s">Site address</label>
-        <input id="s" type="text" value={site} onChange={(e) => setSite(e.target.value)} />
+        <input id="s" type="text" value={site} onChange={(e) => setSite(e.target.value)} placeholder={adding && nc.address ? `Same as client: ${nc.address}` : undefined} />
         <label htmlFor="jt">Job type</label>
         <select id="jt" value={type} onChange={(e) => setType(e.target.value)}>
           {JOB_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -68,7 +113,7 @@ export default function NewJob() {
         <input id="so" type="text" value={source} onChange={(e) => setSource(e.target.value)} placeholder="Referral, website, repeat client…" />
         <label htmlFor="n">Notes</label>
         <textarea id="n" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        <button className="btn primary" disabled={busy || !title.trim()}>Create job</button>
+        <button className="btn primary" disabled={busy || !title.trim() || (adding && !nc.name.trim())}>Create job</button>
       </form>
     </>
   )

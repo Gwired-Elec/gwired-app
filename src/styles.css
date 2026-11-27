@@ -113,3 +113,4 @@ input:disabled, select:disabled, textarea:disabled { background: var(--grey-1); 
 .sheet { background: var(--white); width: 100%; max-width: 480px; border-radius: 16px 16px 0 0; padding: 20px 16px calc(20px + var(--safe-bottom)); }
 @media (min-width: 768px) { .overlay { align-items: center; } .sheet { border-radius: 16px; } }
 @media (max-width: 767px) { .sidesync { display: none; } }
+.subform { border-left: 3px solid var(--red); padding: 4px 0 4px 14px; margin: 14px 0 4px; }
