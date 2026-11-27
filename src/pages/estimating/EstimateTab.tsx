@@ -403,7 +403,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
           </div>
         )
       })}
-      {editable && <button className="btn" onClick={() => save('estimate_sections', newId(), { estimate_id: est.id, name: 'New section', sort: (ordered.at(-1)?.sort ?? 0) + 10 })}>+ Add a section</button>}
+      {editable && <button className="btn" style={{ marginTop: 16, marginBottom: 24 }} onClick={() => save('estimate_sections', newId(), { estimate_id: est.id, name: 'New section', sort: (ordered.at(-1)?.sort ?? 0) + 10 })}>+ Add a section</button>}
 
       <Terms est={est} editable={editable} onSet={setEst} />
       <TotalsCard t={totals} est={est} seeCost={seeCost} methodName={methodName} />
