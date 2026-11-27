@@ -50,6 +50,33 @@ export const clearLockData = () => {
 }
 const lockEnabled = (c: LockConfig) => !!c.pin || !!c.credId
 
+// When the person last touched the app, kept for this tab only (sessionStorage). A refresh keeps it, so refreshing inside the
+// auto-lock time does not lock the app. Closing the tab or the Home Screen app, or restarting the phone, clears it, so a cold
+// start always asks for the PIN or Face ID.
+const ACTIVE = 'gw-last-active'
+const readStamp = (): number | null => {
+  try {
+    const v = Number(sessionStorage.getItem(ACTIVE))
+    return Number.isFinite(v) && v > 0 ? v : null
+  } catch {
+    return null
+  }
+}
+const writeStamp = (t: number) => {
+  try {
+    sessionStorage.setItem(ACTIVE, String(t))
+  } catch {
+    /* ignore */
+  }
+}
+// locked at launch unless this is a refresh within the auto-lock time
+const startsLocked = (c: LockConfig) => {
+  if (!lockEnabled(c)) return false
+  const stamp = readStamp()
+  if (stamp === null) return true
+  return c.autoMinutes > 0 && Date.now() - stamp > c.autoMinutes * 60_000
+}
+
 // ---------- helpers ----------
 const b64 = (buf: ArrayBuffer | Uint8Array) => {
   const a = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
@@ -168,8 +195,10 @@ export const useLock = () => {
 export function LockProvider({ children }: { children: ReactNode }) {
   const { session, loading, signOut } = useAuth()
   const [config, setConfig] = useState<LockConfig>(loadConfig)
-  const [locked, setLocked] = useState(() => lockEnabled(loadConfig())) // always locked on launch
-  const lastActive = useRef(Date.now())
+  const [locked, setLocked] = useState(() => startsLocked(loadConfig())) // locked on a cold start; a quick refresh stays unlocked
+  const lastActive = useRef(readStamp() ?? Date.now())
+  const lockedRef = useRef(locked) // activity is only recorded while unlocked, so a refresh on the lock screen stays locked
+  lockedRef.current = locked
   const enabled = lockEnabled(config)
 
   const refresh = useCallback(() => setConfig(loadConfig()), [])
@@ -188,19 +217,25 @@ export function LockProvider({ children }: { children: ReactNode }) {
   // inactivity and time spent in the background
   useEffect(() => {
     if (!session || !enabled) return
-    const touch = () => (lastActive.current = Date.now())
+    const touch = () => {
+      const now = Date.now()
+      if (!lockedRef.current) writeStamp(now)
+      lastActive.current = now
+    }
     const check = () => {
       const m = loadConfig().autoMinutes
       if (m > 0 && Date.now() - lastActive.current > m * 60_000) setLocked(true)
     }
-    const onVis = () => (document.visibilityState === 'visible' ? check() : void 0)
+    const onVis = () => (document.visibilityState === 'visible' ? check() : lockedRef.current ? void 0 : writeStamp(lastActive.current))
     const events = ['pointerdown', 'keydown', 'touchstart', 'scroll']
     events.forEach((e) => window.addEventListener(e, touch, { passive: true }))
     document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', onVis)
     const t = setInterval(check, 15_000)
     return () => {
       events.forEach((e) => window.removeEventListener(e, touch))
       document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', onVis)
       clearInterval(t)
     }
   }, [session, enabled])
@@ -216,6 +251,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
         const r = await checkPin(pin)
         if (r.result === 'ok') {
           lastActive.current = Date.now()
+          writeStamp(lastActive.current)
           setLocked(false)
         } else if (r.result === 'wipe') {
           // too many wrong PINs: this is a forced sign-out, so the local copy goes too
@@ -229,6 +265,7 @@ export function LockProvider({ children }: { children: ReactNode }) {
         const ok = await biometricCheck()
         if (ok) {
           lastActive.current = Date.now()
+          writeStamp(lastActive.current)
           setLocked(false)
         }
         return ok
