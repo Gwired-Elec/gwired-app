@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { addDaysIso, nextDue, shortDay, todayIso, useReminders, useTodos, type Recurrence, type Todo } from '../../lib/planner/data'
-import { newId, remove, save, saveBatch } from '../../lib/sync/store'
+import { toggleTodo } from '../../lib/planner/actions'
+import { addDaysIso, shortDay, todayIso, useReminders, useTodos, type Recurrence, type Todo } from '../../lib/planner/data'
+import { newId, remove, save } from '../../lib/sync/store'
 import { JobSelect, PersonSelect, useLabels } from './shared'
 
 const REPEAT: [Recurrence, string][] = [['none', 'Does not repeat'], ['daily', 'Every day'], ['weekly', 'Every week'], ['monthly', 'Every month']]
@@ -116,17 +117,7 @@ function TodoCard({ t, labels, open, onOpen, edit, hideJob }: { t: Todo; labels:
   const t0 = todayIso()
   const isDone = !!t.done_at
 
-  async function tick() {
-    if (isDone) return save('todos', t.id, { done_at: null })
-    const items: { tbl: 'todos'; id: string; patch: Record<string, unknown> }[] = [{ tbl: 'todos', id: t.id, patch: { done_at: new Date().toISOString() } }]
-    // a repeating to-do starts its next one straight away (never one that is already in the past)
-    if (t.recurrence !== 'none' && t.due_date) {
-      let nd = nextDue(t.due_date, t.recurrence)
-      for (let i = 0; i < 400 && nd < t0; i++) nd = nextDue(nd, t.recurrence)
-      items.push({ tbl: 'todos', id: newId(), patch: { title: t.title, notes: t.notes, job_id: t.job_id, assigned_to: t.assigned_to, due_date: nd, recurrence: t.recurrence, show_in_diary: t.show_in_diary, created_by: t.created_by } })
-    }
-    await saveBatch(items)
-  }
+  const tick = () => toggleTodo(t)
   const meta = [
     t.due_date ? (t.due_date < t0 && !isDone ? `overdue, was ${shortDay(t.due_date)}` : t.due_date === t0 ? 'today' : shortDay(t.due_date)) : '',
     t.recurrence !== 'none' ? '↻ ' + t.recurrence : '',

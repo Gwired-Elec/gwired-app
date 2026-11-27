@@ -14,8 +14,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 const PAGE = 100
 
 export function MaterialList() {
-  const { can, profile } = useAuth()
-  const isOwner = profile?.preset === 'owner'
+  const { can, isOwner } = useAuth()
   const materials = useMaterials()
   const prices = useAllPrices()
   const suppliers = useSuppliers()
@@ -113,7 +112,7 @@ export function MaterialList() {
 
 export function MaterialDetail() {
   const { id = '' } = useParams()
-  const { can, profile } = useAuth()
+  const { can, isOwner } = useAuth()
   const nav = useNavigate()
   const materials = useMaterials()
   const allPrices = useAllPrices()
@@ -186,7 +185,7 @@ export function MaterialDetail() {
         }}
       />
 
-      {profile?.preset === 'owner' && (
+      {isOwner && (
         <div className="card" style={{ marginTop: 24 }}>
           <h2>Delete this material</h2>
           <p className="muted small">Takes it out of the materials list and its supplier prices with it. Estimates that already use it keep their lines and prices as they are. Only owners can do this.</p>

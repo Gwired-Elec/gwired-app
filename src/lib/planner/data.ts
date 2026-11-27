@@ -24,6 +24,7 @@ export const todayIso = () => isoDate(new Date())
 export const parseIso = (s: string) => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d) }
 export const addDaysIso = (s: string, n: number) => { const d = parseIso(s); d.setDate(d.getDate() + n); return isoDate(d) }
 export const mondayOf = (s: string) => { const d = parseIso(s); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoDate(d) }
+export const newDayLabel = (s: string) => parseIso(s).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 export const dayLabel = (s: string) => parseIso(s).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 export const shortDay = (s: string) => parseIso(s).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 

@@ -5,7 +5,7 @@ import { signOutEverywhere } from '../lib/users'
 import { useSafeSignOut } from '../lib/sync/signout'
 
 export default function More() {
-  const { profile, can } = useAuth()
+  const { profile, can, isOwner } = useAuth()
   const safeSignOut = useSafeSignOut()
   const [msg, setMsg] = useState('')
   return (
@@ -32,7 +32,7 @@ export default function More() {
       {(can('clients.view') || can('jobs.view')) && (
         <Link className="card linkcard" to="/clients"><strong>Clients</strong><span className="muted"> Clients and their contacts</span></Link>
       )}
-      {profile?.preset === 'owner' && (
+      {isOwner && (
         <Link className="card linkcard" to="/more/dashboard"><strong>Dashboard</strong><span className="muted"> Money owed, how late, pipeline and live jobs (owners only)</span></Link>
       )}
       {can('estimates.view') && (

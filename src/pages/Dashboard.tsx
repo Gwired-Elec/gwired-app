@@ -15,9 +15,9 @@ const Tile = ({ label, value, sub, colour }: { label: string; value: string; sub
 )
 
 export default function Dashboard() {
-  const { profile } = useAuth()
+  const { isOwner } = useAuth()
   const d = useDashboard()
-  if (profile?.preset !== 'owner') return <><h1>Dashboard</h1><p className="muted">The dashboard is for owners only.</p></>
+  if (!isOwner) return <><h1>Dashboard</h1><p className="muted">The dashboard is for owners only.</p></>
   if (!d) return <><h1>Dashboard</h1><p className="muted">Loading…</p></>
   const a = d.ageing
   const ageTotal = a.notDue + a.d1_30 + a.d31_60 + a.d61plus

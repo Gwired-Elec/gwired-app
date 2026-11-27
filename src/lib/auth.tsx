@@ -18,6 +18,7 @@ interface AuthState {
   profile: Profile | null
   recovering: boolean // arrived from a password-reset email: must set a new password
   can: (p: PermissionKey) => boolean
+  isOwner: boolean
   signOut: () => Promise<void>
   doneRecovering: () => void
 }
@@ -91,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // arrived from a reset link, or signed in with a temporary password: must choose a new password first
       recovering: recovering || !!session?.user.user_metadata?.must_change_password,
       can: (p) => !!profile?.active && !!profile.permissions?.[p],
+      isOwner: !!profile?.active && (profile.preset === 'owner' || (!!profile.permissions?.users && !!profile.permissions?.settings)),
       signOut: async () => {
         await supabase.auth.signOut()
       },
