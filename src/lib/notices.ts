@@ -51,7 +51,8 @@ const read = (): string[] => { try { return JSON.parse(localStorage.getItem(KEY)
 export function useNotices(me: string | undefined, jobId?: string, team: Person[] = []): { notices: Notice[]; dismiss: (id: string) => void } {
   const [gone, setGone] = useState<string[]>(read)
   const rows = useLiveQuery(async () => (dbIsOpen() ? ((await db().activity_log.where('created_at').above(new Date(Date.now() - NOTICE_DAYS * 86_400_000).toISOString()).toArray()) as unknown as Row[]) : []), [], [])
-  const todos = useLiveQuery(async () => (dbIsOpen() ? ((await db().todos.where('created_at').above(new Date(Date.now() - NOTICE_DAYS * 86_400_000).toISOString()).toArray()) as unknown as TodoRow[]) : []), [], [])
+  // to-dos have no index on created_at, so filter rather than use where() (where() on an unindexed field throws and would blank the whole screen)
+  const todos = useLiveQuery(async () => { try { if (!dbIsOpen()) return []; const since = new Date(Date.now() - NOTICE_DAYS * 86_400_000).toISOString(); return (await db().todos.filter((t) => !t.deleted_at && String(t.created_at ?? '') > since).toArray()) as unknown as TodoRow[] } catch { return [] } }, [], [])
   const dismiss = useCallback((id: string) => {
     const next = [...read(), id].slice(-200)
     try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* ignore */ }
