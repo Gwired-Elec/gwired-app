@@ -67,12 +67,13 @@ function AreaCard({ area: a, elements }: { area: Area; elements: Element[] }) {
   const [desc, setDesc] = useState('')
   const [qty, setQty] = useState('1')
   const [unit, setUnit] = useState('nr')
+  const [note, setNote] = useState('')
   const addEl = async (e: FormEvent) => {
     e.preventDefault()
     const q = Number(qty.replace(/,/g, ''))
     if (!desc.trim() || !Number.isFinite(q) || q < 0) return
-    await save('walkaround_elements', newId(), { area_id: a.id, description: desc.trim(), qty: q, unit: unit.trim() || 'nr', sort: (elements.at(-1)?.sort ?? 0) + 10 })
-    setDesc(''); setQty('1')
+    await save('walkaround_elements', newId(), { area_id: a.id, description: desc.trim(), qty: q, unit: unit.trim() || 'nr', notes: note.trim() || null, sort: (elements.at(-1)?.sort ?? 0) + 10 })
+    setDesc(''); setQty('1'); setNote('')
   }
   return (
     <div className="card">
@@ -107,6 +108,7 @@ function AreaCard({ area: a, elements }: { area: Area; elements: Element[] }) {
           <div className="f"><label htmlFor={'nq' + a.id}>Qty</label><input id={'nq' + a.id} type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
+        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" aria-label="Note for this item" style={{ marginTop: 8 }} />
         <button className="btn" disabled={!desc.trim()}>+ Add item</button>
       </form>
       <datalist id="wunits">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
