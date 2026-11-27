@@ -91,7 +91,7 @@ export default function Security() {
         <button className="btn" onClick={async () => {
           const r = await supabase.auth.registerPasskey()
           if (r.error) err(/not enabled|disabled|404|not found/i.test(r.error.message) ? 'Passkeys are not switched on in Supabase yet (Authentication settings).' : r.error.message)
-          else { ok('Passkey added. Next time, choose "Sign in with Face ID / passkey".'); void loadPasskeys() }
+          else { try { localStorage.setItem('gw-has-passkey', '1') } catch { /* ignore */ }; ok('Passkey added. Next time, choose "Sign in with Face ID / passkey".'); void loadPasskeys() }
         }}>Add a passkey on this device</button>
       </div>
     </>

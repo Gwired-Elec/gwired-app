@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase, getKeepSignedIn, setKeepSignedIn } from '../lib/supabase'
 
 type Mode = 'password' | 'magic' | 'forgot'
@@ -42,11 +42,21 @@ export default function SignIn() {
     setBusy(false)
   }
 
-  async function passkeySignIn() {
+  // once this device has used a passkey, Face ID is offered straight away when the page opens
+  const asked = useRef(false)
+  useEffect(() => {
+    if (asked.current) return
+    asked.current = true
+    let known = false
+    try { known = localStorage.getItem('gw-has-passkey') === '1' } catch { /* ignore */ }
+    if (known && navigator.onLine) void passkeySignIn(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  async function passkeySignIn(auto = false) {
     setMsg(null)
     setKeepSignedIn(keep)
     const { error } = await supabase.auth.signInWithPasskey()
-    if (error && !/cancel|abort|not allowed/i.test(error.message)) {
+    if (!error) { try { localStorage.setItem('gw-has-passkey', '1') } catch { /* ignore */ } }
+    if (error && !auto && !/cancel|abort|not allowed/i.test(error.message)) {
       setMsg({ kind: 'err', text: "That didn't work. Use your password, or add a passkey first from More > Security." + (import.meta.env.DEV ? ` [dev only: ${error.message}]` : '') })
     }
   }
@@ -75,7 +85,7 @@ export default function SignIn() {
           </button>
         </form>
         {mode === 'password' && !!window.PublicKeyCredential && (
-          <button type="button" className="btn" style={{ width: '100%', marginTop: 12 }} disabled={busy} onClick={passkeySignIn}>
+          <button type="button" className="btn" style={{ width: '100%', marginTop: 12 }} disabled={busy} onClick={() => passkeySignIn()}>
             Sign in with Face ID / passkey
           </button>
         )}

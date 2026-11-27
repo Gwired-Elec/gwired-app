@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../lib/auth'
 import { useLock } from '../lib/lock'
 import { useSafeSignOut } from '../lib/sync/signout'
@@ -29,17 +29,24 @@ export default function LockScreen() {
     }
   }
 
-  async function face() {
+  async function face(auto = false) {
     setMsg('')
-    if (!(await unlockWithBiometric())) setMsg("Face ID didn't work. Try again or use your PIN.")
+    if (!(await unlockWithBiometric())) setMsg(auto ? (config.pin ? 'Enter your PIN, or tap Unlock with Face ID to try again.' : 'Tap Unlock with Face ID to try again.') : "Face ID didn't work. Try again or use your PIN.")
   }
+  // Face ID is asked for as soon as the lock screen appears; if it fails (or the phone wants a tap first) the PIN is there
+  const tried = useRef(false)
+  useEffect(() => {
+    if (tried.current || !config.credId) return
+    tried.current = true
+    void face(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="login">
       <div className="login-box" style={{ textAlign: 'center' }}>
         <div className="logo-text">G | WIRED<span>LOCKED</span></div>
         <p className="muted" style={{ color: '#a1a1aa' }}>{profile?.full_name ?? profile?.email}</p>
-        {config.credId && <button className="btn primary" onClick={face}>Unlock with Face ID</button>}
+        {config.credId && <button className="btn primary" onClick={() => face()}>Unlock with Face ID</button>}
         {config.pin && (
           <form onSubmit={submit}>
             <label htmlFor="pin">PIN</label>
