@@ -248,3 +248,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .notice.good { border-color: #15803d; background: #f0fdf4; }
 .st-accepted { color: #15803d; font-weight: 700; }
 @media (prefers-color-scheme: dark) { .notice.good { background: #052e16; } }
+/* dark mode: the green notice cards need light text */
+@media (prefers-color-scheme: dark) { .notice.good, .notice.good a, .notice.good strong, .notice.good .small { color: #f0fdf4; } }
