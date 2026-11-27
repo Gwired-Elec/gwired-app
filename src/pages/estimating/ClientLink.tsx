@@ -36,10 +36,10 @@ export default function ClientLink({ job, est, sections, lines, clauses, canEdit
     } catch (e) { setMsg((e as Error).message || 'Could not make the link.') }
     setBusy(false)
   }
-  async function share(token: string) {
+  async function share(token: string, copyOnly = false) {
     const url = linkUrl(token)
     const text = `Your quotation ${[job.job_number, job.title].filter(Boolean).join(' ')}${est.rev > 1 ? ' rev ' + revLetter(est.rev) : ''} from ${cachedCompany().name}`
-    if (navigator.share) { try { await navigator.share({ title: text, text, url }); return } catch (e) { if ((e as Error).name === 'AbortError') return } }
+    if (!copyOnly && navigator.share) { try { await navigator.share({ title: text, text, url }); return } catch (e) { if ((e as Error).name === 'AbortError') return } }
     try { await navigator.clipboard.writeText(url); setCopied(token); setTimeout(() => setCopied(''), 3000) } catch { setMsg(url) }
   }
   async function revoke(id: string) {
@@ -51,6 +51,7 @@ export default function ClientLink({ job, est, sections, lines, clauses, canEdit
     <div className="card">
       <h2>Client link</h2>
       <p className="muted small">A private web address for this quote. The client opens it on any phone or computer, with no login, reads the quote, downloads the PDF and taps Accept. It shows the quote exactly as issued, so later changes never alter it.</p>
+      {est.status === 'draft' && <p><strong>To make the link, first tap "Issue this quote" above.</strong> Then come back here: tap <em>Make client link</em>, then <em>Send or copy link</em> and paste it into a text or email.</p>}
       {err && <p className="err" role="alert">{err}</p>}
       {msg && <p className="err" role="alert">{msg}</p>}
       {live.map((l) => (
@@ -62,7 +63,8 @@ export default function ClientLink({ job, est, sections, lines, clauses, canEdit
           <p className="muted small" style={{ margin: '2px 0 6px' }}>Made {fmtDateTime(l.created_at)}{l.last_viewed_at ? ` · last opened ${fmtDateTime(l.last_viewed_at)}` : ''}</p>
           <p className="small" style={{ wordBreak: 'break-all', margin: '0 0 6px' }}>{linkUrl(l.token)}</p>
           <div className="actions tight">
-            <button className="btn primary" onClick={() => share(l.token)}>{copied === l.token ? 'Copied' : 'Send or copy link'}</button>
+            <button className="btn primary" onClick={() => share(l.token, true)}>{copied === l.token ? 'Copied ✓' : 'Copy link'}</button>
+            <button className="btn" onClick={() => share(l.token)}>Send…</button>
             <button className="btn" onClick={() => window.open(linkUrl(l.token, true), "_blank", "noopener")}>Preview</button>
             {canEdit && !l.accepted_at && <button className="btn" onClick={() => revoke(l.id)}>Stop link</button>}
           </div>

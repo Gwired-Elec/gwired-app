@@ -477,7 +477,7 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
 
       {!variation && canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
       {!variation && <QuoteButton job={job} est={est} sections={sections} lines={lines} clauses={clauses} />}
-      {!variation && (est.status === 'issued' || est.status === 'accepted') && <ClientLink job={job} est={est} sections={sections} lines={lines} clauses={clauses} canEdit={canEdit} />}
+      {!variation && (est.status === 'draft' || est.status === 'issued' || est.status === 'accepted') && <ClientLink job={job} est={est} sections={sections} lines={lines} clauses={clauses} canEdit={canEdit} />}
       {!variation && canEdit && est.status === 'issued' && <button className="btn primary" onClick={acceptAndStart}>Accept and start job</button>}
       {statusDialog}
       {!variation && <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Once issued, make a client link below to send it as a web page the client can accept.</p>}
