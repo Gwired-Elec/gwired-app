@@ -63,7 +63,7 @@ export default function ClientLink({ job, est, sections, lines, clauses, canEdit
           <p className="small" style={{ wordBreak: 'break-all', margin: '0 0 6px' }}>{linkUrl(l.token)}</p>
           <div className="actions tight">
             <button className="btn primary" onClick={() => share(l.token)}>{copied === l.token ? 'Copied' : 'Send or copy link'}</button>
-            <a className="btn" href={linkUrl(l.token, true)} target="_blank" rel="noreferrer">Preview</a>
+            <button className="btn" onClick={() => window.open(linkUrl(l.token, true), "_blank", "noopener")}>Preview</button>
             {canEdit && !l.accepted_at && <button className="btn" onClick={() => revoke(l.id)}>Stop link</button>}
           </div>
         </div>
