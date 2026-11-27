@@ -73,7 +73,6 @@ export default function Dashboard() {
         <p><strong>{d.pipeline.open}</strong> quote{d.pipeline.open === 1 ? '' : 's'} out, worth <strong>{formatGBP(d.pipeline.value)}</strong>
           {d.pipeline.weighted > 0 && <> · about <strong>{formatGBP(d.pipeline.weighted)}</strong> after probability</>}</p>
         {d.pipeline.unweightedCount > 0 && <p className="muted small">{d.pipeline.unweightedCount} quote{d.pipeline.unweightedCount === 1 ? ' has' : 's have'} no probability set, so {d.pipeline.unweightedCount === 1 ? 'it is' : 'they are'} not in the weighted figure (set it on the job's Overview tab).</p>}
-        {d.pipeline.chaseOverdue > 0 && <p style={{ color: '#b91c1c' }}>⏰ {d.pipeline.chaseOverdue} quote{d.pipeline.chaseOverdue === 1 ? ' is' : 's are'} overdue a chase. <Link to="/todos">See reminders</Link></p>}
         {d.pipeline.byStatus.map((s) => <div key={s.status} className="rowtop"><span style={{ textTransform: 'capitalize' }}>{s.status}</span><span>{s.count} · {formatGBP(s.value)}</span></div>)}
       </div>
 

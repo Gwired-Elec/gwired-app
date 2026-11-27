@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { fmtDate, typeLabel, useClients, useJobs, useReasons, useStatuses, useStatusFlow, type Job, type Status } from '../lib/jobs'
+import { typeLabel, useClients, useJobs, useReasons, useStatuses, useStatusFlow, type Job, type Status } from '../lib/jobs'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
 export default function Jobs({ archive = false }: { archive?: boolean }) {
@@ -114,7 +114,6 @@ function JobCard({ job, client, statuses, unsynced, editable, onStatus, compact 
         <span className="muted small">{job.job_number ?? 'Number pending'} · {typeLabel(job.job_type)}{unsynced && <span className="badge"> not yet synced</span>}</span>
         <strong>{job.title}</strong>
         {!compact && <span className="muted">{[client, job.site_address].filter(Boolean).join(' · ')}</span>}
-        {job.chase_date && current?.asks_chase && <span className="small">Chase {fmtDate(job.chase_date)}</span>}
       </Link>
       <select value={job.status} disabled={!editable} onChange={(e) => onStatus(e.target.value)} aria-label={`Status of ${job.title}`} style={{ borderColor: current?.colour, color: current?.colour, fontWeight: 600 }}>
         {statuses?.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}

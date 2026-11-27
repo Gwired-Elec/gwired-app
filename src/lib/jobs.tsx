@@ -74,7 +74,6 @@ export function useStatusFlow(statuses: Status[] | undefined, reasons: Reason[] 
   const [pending, setPending] = useState<{ job: Job; status: Status } | null>(null)
   const [reason, setReason] = useState('')
   const [note, setNote] = useState('')
-  const [chase, setChase] = useState(addDays(7))
 
   async function apply(job: Job, status: Status, extra: Record<string, unknown> = {}) {
     const wasLost = statuses?.find((s) => s.slug === job.status)?.is_lost
@@ -91,10 +90,6 @@ export function useStatusFlow(statuses: Status[] | undefined, reasons: Reason[] 
     if (status.is_lost) {
       setReason('')
       setNote('')
-      return setPending({ job, status })
-    }
-    if (status.asks_chase) {
-      setChase(addDays(7))
       return setPending({ job, status })
     }
     void apply(job, status)
@@ -124,18 +119,12 @@ export function useStatusFlow(statuses: Status[] | undefined, reasons: Reason[] 
               )}
             </>
           )}
-          {status.asks_chase && (
-            <>
-              <label htmlFor="cd">Chase on</label>
-              <input id="cd" type="date" value={chase} onChange={(e) => setChase(e.target.value)} />
-            </>
-          )}
           <div className="actions">
             <button
               className="btn primary"
               style={{ width: 'auto' }}
-              disabled={status.is_lost ? !reason || (!!chosen?.needs_note && !note.trim()) : !chase}
-              onClick={() => apply(job, status, status.is_lost ? { lost_reason: reason, lost_note: note.trim() || null } : { chase_date: chase })}
+              disabled={!reason || (!!chosen?.needs_note && !note.trim())}
+              onClick={() => apply(job, status, { lost_reason: reason, lost_note: note.trim() || null })}
             >
               Save
             </button>

@@ -65,13 +65,12 @@ export default function PipelineSettings() {
 
       <div className="card">
         <h2>Job statuses</h2>
-        <p className="muted">The order here is the order on the jobs board. A status that asks for a lost reason or a chase date will prompt for it whenever a job is moved to it.</p>
+        <p className="muted">The order here is the order on the jobs board. A status that asks for a lost reason will prompt for it whenever a job is moved to it.</p>
         {statuses?.map((s, i) => (
           <div key={s.id} className="setrow" style={{ opacity: s.active === false ? 0.55 : 1 }}>
             <input type="color" aria-label={`Colour for ${s.name}`} value={s.colour} onChange={(e) => save('job_statuses', s.id, { colour: e.target.value })} />
             <input type="text" aria-label="Status name" defaultValue={s.name} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== s.name && save('job_statuses', s.id, { name: e.target.value.trim() })} />
             <label className="check mini"><input type="checkbox" checked={s.is_lost} onChange={(e) => save('job_statuses', s.id, { is_lost: e.target.checked })} /> Asks lost reason</label>
-            <label className="check mini"><input type="checkbox" checked={s.asks_chase} onChange={(e) => save('job_statuses', s.id, { asks_chase: e.target.checked })} /> Asks chase date</label>
             <div className="actions" style={{ margin: 0 }}>
               <button className="btn" aria-label="Move up" disabled={i === 0} onClick={() => move('job_statuses', statuses, i, -1)}>↑</button>
               <button className="btn" aria-label="Move down" disabled={i === statuses.length - 1} onClick={() => move('job_statuses', statuses, i, 1)}>↓</button>

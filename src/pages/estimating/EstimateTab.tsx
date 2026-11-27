@@ -374,7 +374,7 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
     for (const o of others) if (o.status === 'issued') items.push({ tbl: 'estimates', id: o.id, patch: { status: 'superseded' } })
     await saveBatch(items)
     await logActivity('job', job.id, 'quote', { fields: ['quote_value_pence'], rev: revLetter(est.rev), net: totals.netPence }, user)
-    // issuing the quote moves the job to Quoted (which asks for a chase date)
+    // issuing the quote moves the job to Quoted
     if (job.status === 'estimating' && statuses?.some((x) => x.slug === 'quoted')) askStatus(job, 'quoted')
   }
 

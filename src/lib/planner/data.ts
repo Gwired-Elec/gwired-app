@@ -60,10 +60,6 @@ export function useReminders(): Reminder[] {
       const asks = new Set(statuses.filter((s) => s.asks_chase).map((s) => String(s.slug)))
       const jobs = (await db().jobs.filter(alive).toArray()).filter((j) => asks.has(String(j.status)))
       const out: Reminder[] = []
-      for (const j of jobs) {
-        const name = `${j.job_number ?? ''} ${j.title ?? ''}`.trim()
-        if (j.chase_date) out.push({ key: 'c' + j.id, date: String(j.chase_date).slice(0, 10), text: `Chase ${name}`, job_id: j.id })
-      }
       const fin = await db().job_financials.toArray()
       for (const f of fin.filter(alive)) {
         const j = jobs.find((x) => x.id === f.id)

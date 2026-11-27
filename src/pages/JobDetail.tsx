@@ -10,7 +10,7 @@ import { DiaryPanel } from './planner/Diary'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../lib/auth'
-import { fmtDate, JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow, type Job } from '../lib/jobs'
+import { JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow, type Job } from '../lib/jobs'
 import { formatGBP, parsePounds, toInputPounds } from '../lib/money'
 import { db, type Row } from '../lib/sync/db'
 import { diff, logActivity, save } from '../lib/sync/store'
@@ -54,7 +54,6 @@ export default function JobDetail() {
         </select>
       </div>
       {job.status === 'lost' && job.lost_reason && <p className="err">Lost: {job.lost_reason}{job.lost_note ? ` (${job.lost_note})` : ''}</p>}
-      {status?.asks_chase && job.chase_date && <p>Chase on <strong>{fmtDate(job.chase_date)}</strong></p>}
 
       <div className="tabs" role="tablist">
         {TABS.map((t) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>)}
