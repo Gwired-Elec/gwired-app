@@ -434,7 +434,7 @@ function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCos
           <input key={'h' + l.hours_per_unit} type="text" inputMode="decimal" defaultValue={String(l.hours_per_unit)} disabled={!editable} onBlur={(e) => { const n = num(e.target.value); if (Number.isFinite(n) && n >= 0 && n !== l.hours_per_unit) onEdit({ hours_per_unit: n }) }} /></div>}
       </div>
       <p className="small" style={{ margin: '4px 0 0' }}>
-        <strong>{formatGBP(lineSell(l, uplift))}</strong>
+        <span>{formatGBP(lineSell(l, uplift))}</span>
         {seeCost && <span className="muted"> · cost {formatGBP(lineCost(l))}</span>}
         {hours > 0 && <span className="muted"> · {hours} h labour</span>}
         {l.sell_override != null && <> · <span className="tag">price set by hand</span> {editable && <button className="link small" onClick={() => onSell('')}>Use suggested {formatGBP(Math.round(suggestedSell(l, uplift)))}</button>}</>}
