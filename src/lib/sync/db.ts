@@ -62,7 +62,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   walkarounds: ['job_id', 'title', 'visit_date', 'notes', 'deleted_at'],
   walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
   walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
-  walkaround_photos: ['area_id', 'element_id', 'path', 'caption', 'sort', 'deleted_at'],
+  walkaround_photos: ['area_id', 'element_id', 'path', 'original_path', 'caption', 'sort', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -100,7 +100,7 @@ export interface Row {
 }
 
 // a picture held on this device: waiting to upload (uploaded = 0), or already in the cloud and cached here for offline (1)
-export interface PhotoFile { id: string; blob: Blob; uploaded: number }
+export interface PhotoFile { id: string; blob: Blob; uploaded: number; path?: string } // path: which version of the picture this is (changes when it is marked up)
 
 export class GwDb extends Dexie {
   outbox!: Table<OutboxOp, number>

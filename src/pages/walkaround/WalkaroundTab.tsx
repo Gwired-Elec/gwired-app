@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../../lib/auth'
 import type { Job } from '../../lib/jobs'
 import { db, type Row } from '../../lib/sync/db'
 import { newId, remove, save } from '../../lib/sync/store'
-import { keepLocal, photoWaiting, shrinkImage, uploadPendingPhotos, usePhotoUrl } from '../../lib/walkaround/photoStore'
+import { keepLocal, keepOriginal, photoWaiting, uploadPendingPhotos, usePhotoUrl } from '../../lib/walkaround/photoStore'
+import { PhotoViewer, ReviewQueue } from './PhotoEditor'
 import SowExport from './SowExport'
 
 export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
-export interface Photo extends Row { area_id: string; element_id: string | null; path: string; caption: string | null; sort: number }
+export interface Photo extends Row { area_id: string; element_id: string | null; path: string; original_path: string | null; caption: string | null; sort: number }
 export interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
 
 const alive = (r: Row) => !r.deleted_at
@@ -68,14 +69,21 @@ export default function WalkaroundTab({ job }: { job: Job }) {
   )
 }
 
-// shrink, keep on the device, and record each picture against one item (the upload happens when there is signal)
-async function attachPhotos(files: File[], jobId: string, areaId: string, elementId: string, firstSort: number) {
+// A picture the person has accepted (already shrunk by the preview screen). If it was marked up, the untouched picture is kept
+// too so the markup can be removed later. Saved on the device first; the upload happens when there is signal.
+export interface Kept { blob: Blob; original?: Blob }
+async function attachPhotos(items: Kept[], jobId: string, areaId: string, elementId: string, firstSort: number) {
   let sort = firstSort
-  for (const file of files) {
-    const blob = await shrinkImage(file)
+  for (const it of items) {
     const id = newId()
-    await keepLocal(id, blob)
-    await save('walkaround_photos', id, { area_id: areaId, element_id: elementId, path: `${jobId}/${id}.jpg`, sort })
+    const fields: Record<string, unknown> = { area_id: areaId, element_id: elementId, sort }
+    if (it.original) {
+      fields.original_path = `${jobId}/${id}.jpg`
+      fields.path = `${jobId}/${id}-m.jpg`
+      await keepOriginal(id, it.original, fields.original_path as string)
+    } else fields.path = `${jobId}/${id}.jpg`
+    await keepLocal(id, it.blob, fields.path as string)
+    await save('walkaround_photos', id, fields)
     sort += 10
   }
   void uploadPendingPhotos()
@@ -92,8 +100,8 @@ function PhotoButton({ busy, onFiles }: { busy?: boolean; onFiles: (f: File[]) =
 }
 
 // small previews of pictures chosen for a new item, before it has been added
-function PendingThumbs({ files, onRemove }: { files: File[]; onRemove: (i: number) => void }) {
-  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+function PendingThumbs({ files, onRemove }: { files: Kept[]; onRemove: (i: number) => void }) {
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f.blob)), [files])
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
   if (!files.length) return null
   return (
@@ -110,21 +118,27 @@ function ItemExtras({ jobId, areaId, el, photos }: { jobId: string; areaId: stri
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
-  async function add(files: File[]) {
+  const [queue, setQueue] = useState<File[]>([]) // pictures just taken, being reviewed
+  const sortRef = useRef(0)
+  async function keep(blob: Blob, original?: Blob) {
     setBusy(true); setErr('')
-    try { await attachPhotos(files, jobId, areaId, el.id, (photos.at(-1)?.sort ?? 0) + 10) } catch (e) { setErr(e instanceof Error ? e.message : 'A photo could not be added.') }
+    try {
+      sortRef.current = Math.max(sortRef.current, photos.at(-1)?.sort ?? 0) + 10
+      await attachPhotos([{ blob, original }], jobId, areaId, el.id, sortRef.current)
+    } catch (e) { setErr(e instanceof Error ? e.message : 'A photo could not be added.') }
     setBusy(false)
   }
   const showNote = noteOpen || !!el.notes
   return (
     <>
       <div className="walk-actions">
-        <PhotoButton busy={busy} onFiles={add} />
+        <PhotoButton busy={busy} onFiles={setQueue} />
         <button type="button" className="iconbtn" aria-expanded={showNote} onClick={() => setNoteOpen((o) => !o)}>📝 {el.notes ? 'Note' : 'Add note'}</button>
       </div>
       {showNote && <input key={'m' + (el.notes ?? '')} type="text" defaultValue={el.notes ?? ''} autoFocus={noteOpen && !el.notes} placeholder="Note" aria-label="Note" style={{ marginTop: 8 }} onBlur={(e) => e.target.value !== (el.notes ?? '') && save('walkaround_elements', el.id, { notes: e.target.value.trim() || null })} />}
       {err && <p className="err" role="alert">{err}</p>}
       {photos.length > 0 && <div className="thumbs">{photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}</div>}
+      {queue.length > 0 && <ReviewQueue files={queue} onAccept={keep} onDone={() => setQueue([])} />}
     </>
   )
 }
@@ -135,7 +149,8 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
   const [unit, setUnit] = useState('nr')
   const [note, setNote] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
-  const [pending, setPending] = useState<File[]>([]) // photos chosen for the new item before it is added
+  const [pending, setPending] = useState<Kept[]>([]) // photos accepted for the new item before it is added
+  const [queue, setQueue] = useState<File[]>([]) // pictures just taken, being reviewed
   const [adding, setAdding] = useState(false)
   const [addErr, setAddErr] = useState('')
   const addEl = async (e: FormEvent) => {
@@ -188,11 +203,12 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
         <div className="walk-actions">
-          <PhotoButton onFiles={(fs) => setPending((p) => [...p, ...fs])} />
+          <PhotoButton onFiles={setQueue} />
           <button type="button" className="iconbtn" aria-expanded={noteOpen || !!note} onClick={() => setNoteOpen((o) => !o)}>📝 {note ? 'Note' : 'Add note'}</button>
         </div>
         {(noteOpen || !!note) && <input type="text" value={note} autoFocus={noteOpen && !note} onChange={(e) => setNote(e.target.value)} placeholder="Note" aria-label="Note for this item" style={{ marginTop: 8 }} />}
         <PendingThumbs files={pending} onRemove={(i) => setPending((p) => p.filter((_, k) => k !== i))} />
+        {queue.length > 0 && <ReviewQueue files={queue} onAccept={(blob, original) => setPending((p) => [...p, { blob, original }])} onDone={() => setQueue([])} />}
         {addErr && <p className="err" role="alert">{addErr}</p>}
         <button className="btn" style={{ marginTop: 14 }} disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
       </form>
@@ -207,7 +223,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
   )
 }
 
-// a small thumbnail; tap it to see it bigger, add a caption, or remove it
+// a small thumbnail; tap it to open the photo full screen (delete, mark up, caption)
 function PhotoThumb({ photo: p }: { photo: Photo }) {
   const url = usePhotoUrl(p)
   const [open, setOpen] = useState(false)
@@ -219,24 +235,13 @@ function PhotoThumb({ photo: p }: { photo: Photo }) {
     const t = setInterval(check, 8000)
     return () => { live = false; clearInterval(t) }
   }, [p.id])
-  const pic = url ? <img src={url} alt={p.caption || 'Site photo'} /> : <div className="ph">{url === null ? 'Not on this device yet' : '…'}</div>
-  if (!open) {
-    return (
+  return (
+    <>
       <button type="button" className="thumb" aria-label="Open photo" onClick={() => setOpen(true)}>
-        {pic}
+        {url ? <img src={url} alt={p.caption || 'Site photo'} /> : <div className="ph">{url === null ? 'Not on this device yet' : '…'}</div>}
         {waiting && <span className="wait" title="Waiting to upload">⏳</span>}
       </button>
-    )
-  }
-  return (
-    <div className="thumb open">
-      {pic}
-      {waiting && <p className="muted small">Waiting to upload: it goes up when there is signal.</p>}
-      <input key={p.caption ?? ''} type="text" defaultValue={p.caption ?? ''} placeholder="Caption (optional)" aria-label="Photo caption" onBlur={(e) => e.target.value !== (p.caption ?? '') && save('walkaround_photos', p.id, { caption: e.target.value.trim() || null })} />
-      <div className="walk-actions">
-        <button type="button" className="iconbtn" onClick={() => setOpen(false)}>Close</button>
-        <button type="button" className="iconbtn" onClick={() => confirm('Remove this photo?') && remove('walkaround_photos', p.id)}>Remove photo</button>
-      </div>
-    </div>
+      {open && <PhotoViewer photo={p} onClose={() => setOpen(false)} />}
+    </>
   )
 }

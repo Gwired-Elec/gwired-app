@@ -6,6 +6,7 @@ import { supabase } from '../supabase'
 import { db, dbIsOpen } from '../sync/db'
 
 export const BUCKET = 'walkaround-photos'
+const ORIG = ':orig'
 export interface PhotoRef { id: string; path: string }
 
 // Phone photos are 4 to 12 MB. Scale so the longest side is at most 1600 px and save as a JPEG (a few hundred KB): still clear
@@ -23,7 +24,7 @@ export async function shrinkImage(file: Blob, maxSide = 1600, quality = 0.8): Pr
   return out
 }
 
-export const keepLocal = (id: string, blob: Blob) => db().photo_files.put({ id, blob, uploaded: 0 })
+export const keepLocal = (id: string, blob: Blob, path: string) => db().photo_files.put({ id, blob, uploaded: 0, path })
 
 let uploading = false
 // send any pictures still on this device to the cloud (called after each sync, and after taking a photo)
@@ -34,10 +35,13 @@ export async function uploadPendingPhotos(): Promise<void> {
     const d = db()
     const waiting = (await d.photo_files.toArray()).filter((f) => f.uploaded === 0)
     for (const f of waiting) {
-      const row = await d.walkaround_photos.get(f.id)
+      // a record called "<id>:orig" is the untouched picture kept for a marked-up photo
+      const isOrig = f.id.endsWith(ORIG)
+      const row = await d.walkaround_photos.get(isOrig ? f.id.slice(0, -ORIG.length) : f.id)
       if (!row) continue // the record hasn't been made yet
-      if (row.deleted_at) { await d.photo_files.update(f.id, { uploaded: 1 }); continue }
-      const { error } = await supabase.storage.from(BUCKET).upload(String(row.path), f.blob, { contentType: 'image/jpeg', upsert: true })
+      const path = isOrig ? row.original_path : row.path
+      if (row.deleted_at || !path) { await d.photo_files.update(f.id, { uploaded: 1 }); continue }
+      const { error } = await supabase.storage.from(BUCKET).upload(String(path), f.blob, { contentType: 'image/jpeg', upsert: true })
       if (error) {
         if (/fetch|network|load failed/i.test(error.message)) return // offline: try again later
         continue // e.g. the record is not on the server yet: try again next time
@@ -52,11 +56,13 @@ export async function uploadPendingPhotos(): Promise<void> {
 // the picture as a Blob: from this device if it is here, otherwise downloaded (and then kept here)
 export async function getPhotoBlob(p: PhotoRef): Promise<Blob | null> {
   const local = await db().photo_files.get(p.id)
-  if (local) return local.blob
+  // this device's copy is used if it is still waiting to go up, or it is the same version as the record says
+  // (a marked-up picture gets a new path, so other devices fetch the new version)
+  if (local && (local.uploaded === 0 || !local.path || local.path === p.path)) return local.blob
   if (!navigator.onLine) return null
   const { data, error } = await supabase.storage.from(BUCKET).download(p.path)
   if (error || !data) return null
-  await db().photo_files.put({ id: p.id, blob: data, uploaded: 1 })
+  await db().photo_files.put({ id: p.id, blob: data, uploaded: 1, path: p.path })
   return data
 }
 
@@ -80,4 +86,41 @@ export function usePhotoUrl(p: PhotoRef): string | null | undefined {
     return () => { cancelled = true; if (made) URL.revokeObjectURL(made) }
   }, [p.id, p.path]) // eslint-disable-line react-hooks/exhaustive-deps
   return url
+}
+
+// keep the untouched picture of a marked-up photo (so the markup can be removed later)
+export const keepOriginal = (id: string, blob: Blob, path: string) => db().photo_files.put({ id: id + ORIG, blob, uploaded: 0, path })
+
+// Mark up a saved photo. The first time, the picture as it was becomes the "original"; the marked-up one gets a new path so
+// it uploads as a new file and other devices fetch the new version. Returns what to write on the photo's record.
+export async function markUpPhoto(photo: PhotoRef & { original_path?: string | null }, jobId: string, marked: Blob): Promise<{ path: string; original_path?: string }> {
+  const d = db()
+  const path = `${jobId}/${photo.id}-${Date.now()}.jpg`
+  let original_path: string | undefined
+  if (!photo.original_path) {
+    const cur = await d.photo_files.get(photo.id)
+    if (cur) { await d.photo_files.put({ id: photo.id + ORIG, blob: cur.blob, uploaded: cur.uploaded, path: photo.path }); original_path = photo.path }
+  }
+  await keepLocal(photo.id, marked, path)
+  return original_path ? { path, original_path } : { path }
+}
+
+// Take the markup off: the original becomes the photo again. Returns the fields to write on the record.
+export async function removeMarkup(photo: PhotoRef & { original_path?: string | null }): Promise<boolean> {
+  const d = db()
+  const origPath = photo.original_path
+  if (!origPath) return false
+  const kept = await d.photo_files.get(photo.id + ORIG)
+  let blob = kept?.blob ?? null
+  let uploaded = kept ? kept.uploaded : 1
+  if (!blob) {
+    if (!navigator.onLine) return false
+    const { data } = await supabase.storage.from(BUCKET).download(origPath)
+    if (!data) return false
+    blob = data
+    uploaded = 1
+  }
+  await d.photo_files.put({ id: photo.id, blob, uploaded, path: origPath })
+  await d.photo_files.delete(photo.id + ORIG)
+  return true
 }
