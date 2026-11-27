@@ -6,13 +6,14 @@ import { fmtUnit } from '../pages/estimating/Materials'
 
 // Type to find a material, tap to choose it. Shows each match's sell price and how old its price is, and says so when the
 // price is over the limit (about 6 months), so nobody builds an estimate on an old number without noticing.
-export default function MaterialPicker({ materials, prices, staleDays, defaultMarkup, seeCost, onPick }: {
+export default function MaterialPicker({ materials, prices, staleDays, defaultMarkup, seeCost, onPick, onNew }: {
   materials: Material[]
   prices: Map<string, MaterialPrice[]>
   staleDays: number
   defaultMarkup: number
   seeCost: boolean
   onPick: (m: Material) => void
+  onNew?: (text: string) => void // offered when nothing matches: add what was typed as a new item
 }) {
   const [q, setQ] = useState('')
   const found = useMemo(() => {
@@ -38,6 +39,7 @@ export default function MaterialPicker({ materials, prices, staleDays, defaultMa
         )
       })}
       {q.trim().length >= 2 && !found.length && <p className="muted small">No materials match.</p>}
+      {onNew && q.trim().length >= 2 && <button type="button" className="btn" onClick={() => onNew(q.trim())}>Not in the list? Add “{q.trim()}” as a new item</button>}
     </div>
   )
 }

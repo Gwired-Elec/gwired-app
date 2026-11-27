@@ -138,7 +138,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
   const assemblies = useAssemblies()
   const prelims = usePrelims()
   const [warns, setWarns] = useState<string[]>([])
-  const [adding, setAdding] = useState<{ section: string; mode: string } | null>(null)
+  const [adding, setAdding] = useState<{ section: string; mode: string; prefill?: string } | null>(null)
   const seeCost = can('estimates.view_cost')
   const draft = est.status === 'draft'
   const editable = canEdit && draft
@@ -371,7 +371,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
                   ))}
                 </div>
                 {adding?.section === s.id && (
-                  <AddPanel mode={adding.mode} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost}
+                  <AddPanel key={adding.mode + (adding.prefill ?? '')} mode={adding.mode} prefill={adding.prefill} onNewItem={(t) => setAdding({ section: s.id, mode: 'own', prefill: t })} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost}
                     onMaterial={(m) => addMaterial(m, s.id)} onPoint={(id, q) => addPoint(id, q, s.id)} onDay={(id, d) => addDay(id, d, s.id)} onAssembly={(id) => addAssembly(id, s.id)} onPrelim={(id) => addPrelim(id, s.id)} onOwn={(f) => addOwn(f, s.id)} />
                 )}
                 {!sl.length && ordered.length > 1 && <button className="link small" onClick={() => remove('estimate_sections', s.id)}>Remove this empty section</button>}
@@ -429,6 +429,8 @@ function LineCard({ line: l, editable, seeCost, staleDays, onEdit, onCost, onSel
 // ---------------------------------------------------------------- the panel for adding things to a section
 function AddPanel(p: {
   mode: string
+  prefill?: string
+  onNewItem: (text: string) => void
   materials: Material[]
   prices: ReturnType<typeof useAllPrices> & object
   points: NonNullable<ReturnType<typeof usePointRates>>
@@ -445,12 +447,12 @@ function AddPanel(p: {
 }) {
   const [pick, setPick] = useState('')
   const [qty, setQty] = useState('1')
-  const [own, setOwn] = useState({ description: '', qty: '1', unit: 'each', cost: '', sell: '' })
+  const [own, setOwn] = useState({ description: p.prefill ?? '', qty: '1', unit: 'each', cost: '', sell: '' })
   const [err, setErr] = useState('')
   const n = Number(qty)
   const okQty = Number.isFinite(n) && n > 0
 
-  if (p.mode === 'material') return <div className="subform"><MaterialPicker materials={p.materials} prices={p.prices} staleDays={p.staleDays} defaultMarkup={p.defaultMarkup} seeCost={p.seeCost} onPick={p.onMaterial} /></div>
+  if (p.mode === 'material') return <div className="subform"><MaterialPicker materials={p.materials} prices={p.prices} staleDays={p.staleDays} defaultMarkup={p.defaultMarkup} seeCost={p.seeCost} onPick={p.onMaterial} onNew={p.onNewItem} /></div>
 
   const select = (opts: [string, string][], label: string) => (
     <>
