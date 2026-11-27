@@ -1,7 +1,7 @@
 // Small pieces shared by the to-do and diary screens.
 import { useMemo } from 'react'
 import { useJobs } from '../../lib/jobs'
-import { useTeam } from '../../lib/planner/data'
+import { useTeam } from '../../lib/planner/team'
 
 export function useLabels() {
   const jobs = useJobs()

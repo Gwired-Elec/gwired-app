@@ -1,9 +1,7 @@
 // To-dos and the diary: types, live queries (from the local database, so they work offline), date helpers and the automatic
 // reminders worked out from jobs (chase dates, quotes about to run out).
-import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Row } from '../sync/db'
-import { supabase } from '../supabase'
 
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 export interface Todo extends Row {
@@ -73,23 +71,6 @@ export function useReminders(): Reminder[] {
       return out
     }, []) ?? []
   )
-}
-
-// ---------------------------------------------------------------- who can be given a task (the team list comes from the server, kept for offline)
-export interface Member { id: string; name: string }
-const KEY = 'gw-team'
-export function useTeam(): Member[] {
-  const [team, setTeam] = useState<Member[]>(() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as Member[] } catch { return [] } })
-  useEffect(() => {
-    if (!navigator.onLine) return
-    void supabase.rpc('team_members').then(({ data }) => {
-      if (!Array.isArray(data)) return
-      const t = (data as { id: string; full_name: string | null; email: string }[]).map((m) => ({ id: m.id, name: m.full_name || m.email }))
-      setTeam(t)
-      try { localStorage.setItem(KEY, JSON.stringify(t)) } catch { /* ignore */ }
-    })
-  }, [])
-  return team
 }
 
 // ---------------------------------------------------------------- diary file (.ics) for Outlook, Google and Apple calendars
