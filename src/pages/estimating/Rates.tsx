@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RateGrid, { type Col } from '../../components/RateGrid'
 import { useAuth } from '../../lib/auth'
-import { CATEGORIES, DEFAULT_SETTINGS, METHODS, SETTINGS_ID, useEstSettings, useLabourRates, usePointRates, usePrelims, useSuppliers } from '../../lib/estimating/data'
+import { CATEGORIES, DEFAULT_SETTINGS, METHODS, SETTINGS_ID, hourlyCharge, hourlyCost, useEstSettings, useLabourRates, usePointRates, usePrelims, useSuppliers, type LabourRate } from '../../lib/estimating/data'
+import { formatGBP } from '../../lib/money'
 import { JOB_TYPES } from '../../lib/jobs'
 import { save } from '../../lib/sync/store'
 
@@ -44,18 +45,18 @@ export function LabourRates() {
   if (!g.view) return <NoAccess />
   const cols: Col[] = [
     { key: 'name', label: 'Grade', kind: 'text', wide: true },
-    { key: 'charge_per_hour_pence', label: 'Charge per hour', kind: 'money' },
-    { key: 'day_rate_pence', label: 'Day rate (charge)', kind: 'money' },
-    { key: 'cost_per_hour_pence', label: 'Cost per hour', kind: 'money', hidden: !g.cost },
-    { key: 'day_cost_pence', label: 'Day cost', kind: 'money', hidden: !g.cost },
-    { key: 'overtime_multiplier', label: 'Overtime multiplier', kind: 'number' },
+    { key: 'day_cost_pence', label: 'Cost per day', kind: 'money', hidden: !g.cost },
+    { key: 'day_rate_pence', label: 'Charged out per day', kind: 'money' },
+    { key: 'night_cost_pence', label: 'Night shift cost', kind: 'money', hidden: !g.cost },
+    { key: 'night_rate_pence', label: 'Night shift charged out', kind: 'money' },
     { key: 'active', label: 'In use', kind: 'bool' },
   ]
-  const unset = rows?.filter((r) => r.active !== false && !r.charge_per_hour_pence && !r.day_rate_pence).length
+  const unset = rows?.filter((r) => r.active !== false && !r.day_rate_pence).length
   return (
-    <Page title="Labour rates" intro="What you charge, and what each grade costs you. Labour units on materials are priced at the charge rate you choose on the estimate.">
+    <Page title="Labour rates" intro="What each grade costs you and what you charge out, for an 8-hour day, plus the price for a night shift. Hourly rates are worked out from the day (divided by 8) and used to price labour units on materials.">
       {!!unset && <p className="err">{unset} grade{unset === 1 ? ' has' : 's have'} no rate set yet. Estimates will show £0 labour for {unset === 1 ? 'it' : 'them'}.</p>}
-      <RateGrid tbl="labour_rates" rows={rows} cols={cols} editable={g.edit} newDefaults={{ name: 'New grade', sort: (rows?.at(-1)?.sort ?? 0) + 10, overtime_multiplier: 1.5, active: true }} addLabel="Add grade" />
+      <RateGrid tbl="labour_rates" rows={rows} cols={cols} editable={g.edit} newDefaults={{ name: 'New grade', sort: (rows?.at(-1)?.sort ?? 0) + 10, day_cost_pence: 0, day_rate_pence: 0, night_cost_pence: 0, night_rate_pence: 0, active: true }} addLabel="Add grade"
+        extra={(row) => { const x = row as unknown as LabourRate; return <p className="muted small" style={{ margin: '8px 0 0' }}>Works out at {formatGBP(hourlyCharge(x))} an hour charged out{g.cost ? `, ${formatGBP(hourlyCost(x))} an hour cost` : ''} (8-hour day).</p> }} />
     </Page>
   )
 }

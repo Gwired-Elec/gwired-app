@@ -13,7 +13,7 @@ import type { Job } from '../../lib/jobs'
 import { formatGBP } from '../../lib/money'
 import { db, WRITABLE } from '../../lib/sync/db'
 import { logActivity, newId, remove, save, saveBatch } from '../../lib/sync/store'
-import { METHODS } from '../../lib/estimating/data'
+import { METHODS, hourlyCharge, hourlyCost } from '../../lib/estimating/data'
 import { buildQuotePdf } from '../../lib/estimating/quotePdf'
 import { cachedCompany, loadCompany } from '../../lib/company'
 import { useClients } from '../../lib/jobs'
@@ -171,7 +171,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     return base(sectionId, {
       kind: 'material', description: m.description, unit: m.unit, qty, material_id: m.id, markup_pct: markup,
       unit_cost: r4(cost), unit_sell: r4(sellPerUnit(cost, markup)),
-      hours_per_unit: hours, labour_rate_id: rate?.id ?? null, labour_cost_hr_pence: hours ? rate?.cost_per_hour_pence ?? 0 : 0, labour_charge_hr_pence: hours ? rate?.charge_per_hour_pence ?? 0 : 0,
+      hours_per_unit: hours, labour_rate_id: rate?.id ?? null, labour_cost_hr_pence: hours ? hourlyCost(rate) : 0, labour_charge_hr_pence: hours ? hourlyCharge(rate) : 0,
       price_date: best?.price.price_date ?? null, price_source: best ? suppliers!.find((s) => s.id === best.price.supplier_id)?.name ?? null : null,
     })
   }
@@ -181,7 +181,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
 
   async function addMaterial(m: Material, sectionId: string) {
     const notes: string[] = []
-    if (est.method === 'units' && (m.labour_hours ?? 0) > 0 && (rate?.charge_per_hour_pence ?? 0) === 0) notes.push(`The labour rate "${rate?.name ?? 'none'}" is £0 an hour, so labour on this line costs nothing. Set labour rates under More, Estimating data.`)
+    if (est.method === 'units' && (m.labour_hours ?? 0) > 0 && hourlyCharge(rate) === 0) notes.push(`The labour rate "${rate?.name ?? 'none'}" is £0 an hour, so labour on this line costs nothing. Set labour rates under More, Estimating data.`)
     await addLine(materialPatch(m, sectionId, est.method === 'units', notes))
     setWarns(notes)
   }
@@ -198,11 +198,12 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     setWarns(p.sell_pence === 0 ? [`${p.name} has no price set yet (£0).`] : [])
     await addLine(base(sectionId, { kind: 'point', description: p.name, unit: p.unit, qty, point_rate_id: p.id, unit_cost: p.cost_pence, unit_sell: p.sell_pence }))
   }
-  async function addDay(id: string, days: number, sectionId: string) {
+  async function addDay(id: string, days: number, sectionId: string, night: boolean) {
     const g = labour!.find((x) => x.id === id)
     if (!g) return
-    setWarns(g.day_rate_pence === 0 ? [`${g.name} has no day rate set yet (£0).`] : [])
-    await addLine(base(sectionId, { kind: 'day', description: `${g.name}, day rate`, unit: 'day', qty: days, labour_rate_id: g.id, unit_cost: g.day_cost_pence, unit_sell: g.day_rate_pence }))
+    const rateP = night ? g.night_rate_pence : g.day_rate_pence
+    setWarns(rateP === 0 ? [`${g.name} has no ${night ? 'night shift' : 'day'} rate set yet (£0).`] : [])
+    await addLine(base(sectionId, { kind: 'day', description: `${g.name}, ${night ? 'night shift' : 'day rate'}`, unit: night ? 'night' : 'day', qty: days, labour_rate_id: g.id, unit_cost: night ? g.night_cost_pence : g.day_cost_pence, unit_sell: rateP }))
   }
   async function addAssembly(id: string, sectionId: string) {
     const a = assemblies!.find((x) => x.id === id)
@@ -220,9 +221,9 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
       batch.push({ tbl: 'estimate_lines', id: newId(), patch })
     }
     if (Number(a.extra_labour_hours) > 0) {
-      batch.push({ tbl: 'estimate_lines', id: newId(), patch: base(sectionId, { sort, kind: 'item', description: `${a.name}: extra labour`, unit: 'hour', qty: Number(a.extra_labour_hours), labour_rate_id: rate?.id ?? null, unit_cost: rate?.cost_per_hour_pence ?? 0, unit_sell: rate?.charge_per_hour_pence ?? 0 }) })
+      batch.push({ tbl: 'estimate_lines', id: newId(), patch: base(sectionId, { sort, kind: 'item', description: `${a.name}: extra labour`, unit: 'hour', qty: Number(a.extra_labour_hours), labour_rate_id: rate?.id ?? null, unit_cost: hourlyCost(rate), unit_sell: hourlyCharge(rate) }) })
     }
-    if ((rate?.charge_per_hour_pence ?? 0) === 0) notes.push(`The labour rate "${rate?.name ?? 'none'}" is £0 an hour, so the labour in this assembly costs nothing.`)
+    if (hourlyCharge(rate) === 0) notes.push(`The labour rate "${rate?.name ?? 'none'}" is £0 an hour, so the labour in this assembly costs nothing.`)
     await saveBatch(batch)
     setWarns([...new Set(notes)])
   }
@@ -280,7 +281,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
 
   async function editLine(l: Line, patch: Record<string, unknown>) {
     // hours typed on a line that has no labour rate yet pick up the estimate's labour grade
-    if (Number(patch.hours_per_unit) > 0 && !l.labour_charge_hr_pence && rate) Object.assign(patch, { labour_rate_id: rate.id, labour_cost_hr_pence: rate.cost_per_hour_pence, labour_charge_hr_pence: rate.charge_per_hour_pence })
+    if (Number(patch.hours_per_unit) > 0 && !l.labour_charge_hr_pence && rate) Object.assign(patch, { labour_rate_id: rate.id, labour_cost_hr_pence: hourlyCost(rate), labour_charge_hr_pence: hourlyCharge(rate) })
     await save('estimate_lines', l.id, patch)
   }
   async function newCost(l: Line, text: string) {
@@ -389,7 +390,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
                 </div>
                 {adding?.section === s.id && (
                   <AddPanel key={adding.mode + (adding.prefill ?? '')} mode={adding.mode} prefill={adding.prefill} onNewItem={(t) => setAdding({ section: s.id, mode: 'own', prefill: t })} onCreate={(t) => createAndAdd(t, s.id)} materials={materials} prices={prices} points={points} labour={labour} assemblies={assemblies} prelims={prelims} staleDays={settings.stale_days} defaultMarkup={settings.default_markup_pct} seeCost={seeCost} ohpPct={uplift.mat}
-                    onMaterial={(m) => addMaterial(m, s.id)} onPoint={(id, q) => addPoint(id, q, s.id)} onDay={(id, d) => addDay(id, d, s.id)} onAssembly={(id) => addAssembly(id, s.id)} onPrelim={(id) => addPrelim(id, s.id)} onOwn={(f) => addOwn(f, s.id)} />
+                    onMaterial={(m) => addMaterial(m, s.id)} onPoint={(id, q) => addPoint(id, q, s.id)} onDay={(id, d, night) => addDay(id, d, s.id, night)} onAssembly={(id) => addAssembly(id, s.id)} onPrelim={(id) => addPrelim(id, s.id)} onOwn={(f) => addOwn(f, s.id)} />
                 )}
                 {!sl.length && ordered.length > 1 && <button className="link small" onClick={() => remove('estimate_sections', s.id)}>Remove this empty section</button>}
               </>
@@ -460,7 +461,7 @@ function AddPanel(p: {
   staleDays: number; defaultMarkup: number; seeCost: boolean; ohpPct: number
   onMaterial: (m: Material) => void
   onPoint: (id: string, qty: number) => void
-  onDay: (id: string, days: number) => void
+  onDay: (id: string, days: number, night: boolean) => void
   onAssembly: (id: string) => void
   onPrelim: (id: string) => void
   onOwn: (f: { description: string; qty: number; unit: string; cost: string; sell: string }) => Promise<string>
@@ -469,6 +470,7 @@ function AddPanel(p: {
   const [qty, setQty] = useState('1')
   const [own, setOwn] = useState({ description: p.prefill ?? '', qty: '1', unit: 'each', cost: '', sell: '' })
   const [err, setErr] = useState('')
+  const [night, setNight] = useState(false)
   const n = Number(qty)
   const okQty = Number.isFinite(n) && n > 0
   // the price the line will get if Sell each is left blank: cost + markup, then overheads and profit, to the penny
@@ -497,9 +499,14 @@ function AddPanel(p: {
   )
   if (p.mode === 'day') return (
     <div className="subform">
-      {select(p.labour.filter((x) => x.active !== false).map((x) => [x.id, `${x.name} (${formatGBP(x.day_rate_pence)} a day)`]), 'Who')}
-      {qtyField('How many days')}
-      <button className="btn primary" disabled={!pick || !okQty} onClick={() => (p.onDay(pick, n), setPick(''))}>Add</button>
+      {select(p.labour.filter((x) => x.active !== false).map((x) => [x.id, `${x.name} (${formatGBP(x.day_rate_pence)} day, ${formatGBP(x.night_rate_pence)} night)`]), 'Who')}
+      <label htmlFor="sh">Shift</label>
+      <select id="sh" value={night ? 'night' : 'day'} onChange={(e) => setNight(e.target.value === 'night')}>
+        <option value="day">Day (8 hours)</option>
+        <option value="night">Night shift</option>
+      </select>
+      {qtyField(night ? 'How many nights' : 'How many days')}
+      <button className="btn primary" disabled={!pick || !okQty} onClick={() => (p.onDay(pick, n, night), setPick(''))}>Add</button>
     </div>
   )
   if (p.mode === 'assembly') return (

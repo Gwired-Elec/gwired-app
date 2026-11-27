@@ -27,14 +27,17 @@ export interface MaterialPrice extends Row {
 }
 export interface LabourRate extends Row {
   name: string
-  cost_per_hour_pence: number
-  charge_per_hour_pence: number
-  day_rate_pence: number
-  day_cost_pence: number
-  overtime_multiplier: number
+  day_cost_pence: number // what the person costs you for an 8-hour day
+  day_rate_pence: number // what you charge out for an 8-hour day
+  night_cost_pence: number // the same person on a night shift
+  night_rate_pence: number
   sort: number
   active: boolean
 }
+// hourly figures are worked out from the day figures: a day is 8 hours
+export const DAY_HOURS = 8
+export const hourlyCost = (r?: Pick<LabourRate, 'day_cost_pence'> | null) => (r ? Math.round(r.day_cost_pence / DAY_HOURS) : 0)
+export const hourlyCharge = (r?: Pick<LabourRate, 'day_rate_pence'> | null) => (r ? Math.round(r.day_rate_pence / DAY_HOURS) : 0)
 export interface PointRate extends Row { name: string; category: string | null; unit: string; sell_pence: number; cost_pence: number; notes: string | null; active: boolean }
 export interface Assembly extends Row { code: string | null; name: string; category: string | null; description: string | null; extra_labour_hours: number; active: boolean }
 export interface AssemblyItem extends Row { assembly_id: string; material_id: string; qty: number; sort: number }
