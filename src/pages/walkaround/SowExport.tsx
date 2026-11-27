@@ -23,8 +23,8 @@ async function deliver(file: File) {
 
 export default function SowExport({ job }: { job: Job }) {
   const clients = useClients()
-  const [showRates, setShowRates] = useState(true)
-  const [withPhotos, setWithPhotos] = useState(true)
+  const [showRates, setShowRates] = useState(false)
+  const [withPhotos, setWithPhotos] = useState(false)
   const [busy, setBusy] = useState<'' | 'pdf' | 'xlsx'>('')
   const [err, setErr] = useState('')
   const [skipped, setSkipped] = useState(0)
@@ -48,7 +48,7 @@ export default function SowExport({ job }: { job: Job }) {
       const sowAreas = await Promise.all(areas.map(async (a) => {
         const load = async (list: Photo[]) => {
           const out: SowPhoto[] = []
-          if (!withPhotos) return out
+          if (!withPhotos || kind === 'xlsx') return out // photos only ever go in the PDF, never the Excel file
           for (const p of list) {
             const full = await getPhotoBlob(p)
             if (!full) { missing += 1; continue }
@@ -86,11 +86,13 @@ export default function SowExport({ job }: { job: Job }) {
       <h2>Scope of works</h2>
       <p className="muted small">Made from the areas, notes, items and photos above. Send it out as a PDF, or as an Excel sheet for pricing.</p>
       <label className="check"><input type="checkbox" checked={showRates} onChange={(e) => setShowRates(e.target.checked)} /> Include blank Rate and Total columns for pricing</label>
-      <label className="check"><input type="checkbox" checked={withPhotos} onChange={(e) => setWithPhotos(e.target.checked)} /> Include the photos (PDF and Excel)</label>
+      <label className="check"><input type="checkbox" checked={withPhotos} onChange={(e) => setWithPhotos(e.target.checked)} /> Include the photos (PDF only)</label>
       {err && <p className="err" role="alert">{err}</p>}
       {skipped > 0 && <p className="warnbox" role="status">{skipped} photo{skipped === 1 ? ' was' : 's were'} left out because {skipped === 1 ? 'it is' : 'they are'} not on this device yet. Connect to the internet and try again.</p>}
-      <button className="btn primary" onClick={() => make('pdf')} disabled={!!busy}>{busy === 'pdf' ? 'Making the PDF…' : 'Make PDF'}</button>
-      <button className="btn" onClick={() => make('xlsx')} disabled={!!busy}>{busy === 'xlsx' ? 'Making the Excel file…' : 'Make Excel file'}</button>
+      <div className="actions pair2" style={{ marginTop: 16 }}>
+        <button className="btn primary" onClick={() => make('pdf')} disabled={!!busy}>{busy === 'pdf' ? 'Making…' : 'Make PDF'}</button>
+        <button className="btn" onClick={() => make('xlsx')} disabled={!!busy}>{busy === 'xlsx' ? 'Making…' : 'Make Excel'}</button>
+      </div>
       <p className="muted small">The estimate can bring these items in as sections and lines: open the job's Estimate tab and use "Bring in items from the walkaround".</p>
     </div>
   )

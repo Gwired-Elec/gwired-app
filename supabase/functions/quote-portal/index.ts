@@ -79,7 +79,10 @@ Deno.serve(async (req) => {
   const { data: job } = await sb.from("jobs").select("id, status").eq("id", est.job_id).maybeSingle();
   if (job) {
     if (job.status === "estimating" || job.status === "quoted") await sb.from("jobs").update({ status: "live" }).eq("id", job.id);
-    await sb.from("activity_log").insert({ entity: "job", entity_id: job.id, action: "status", detail: { from: job.status, to: "live", by: "client", quote: link.snapshot?.ref }, user_name: `${name} (client, online)` });
+    await sb.from("activity_log").insert([
+      { entity: "job", entity_id: job.id, action: "status", detail: { from: job.status, to: "live", by: "client", quote: link.snapshot?.ref }, user_name: `${name} (client, online)` },
+      { entity: "job", entity_id: job.id, action: "quote_accepted", detail: { by: "client", name, quote: link.snapshot?.ref }, user_name: `${name} (client, online)` },
+    ]);
     const rows = [
       { title: `Quote ${link.snapshot?.ref ?? ""} accepted online by ${name}: phone to say thank you and confirm`, due_date: addDays(0) },
       ...STARTER.map(([title, d]) => ({ title, due_date: addDays(d) })),

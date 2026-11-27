@@ -237,3 +237,14 @@ button.linklike:hover { text-decoration: underline; }
 .lgrid.pair { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 10px; }
 .lgrid.pair .f { min-width: 0; }
 .lgrid.pair input[type=date], .lgrid.pair select { min-width: 0; max-width: 100%; box-sizing: border-box; }
+
+/* link-styled buttons (<a class="btn">) look like the real ones; a tight row of actions keeps primary buttons normal size */
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
+.actions.tight .btn, .actions.tight .btn.primary { width: auto; margin-top: 0; flex: 1 1 0; min-width: 0; padding: 0 12px; }
+.actions.pair2 { flex-wrap: nowrap; }
+.actions.pair2 .btn, .actions.pair2 .btn.primary { flex: 1 1 0; width: auto; margin-top: 0; min-width: 0; padding: 0 8px; }
+/* an accepted quote revision is green */
+.chip.accepted { --c: #15803d; }
+.notice.good { border-color: #15803d; background: #f0fdf4; }
+.st-accepted { color: #15803d; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .notice.good { background: #052e16; } }

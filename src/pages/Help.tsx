@@ -104,6 +104,7 @@ export default function Help() {
 
       <S title="Home">
         <p>The week's diary across the top, your tasks underneath. Use <strong>Mine / Everyone</strong> to switch between your own and the whole team's, and <strong>Week / Month</strong> to change the calendar. Tap a day to see or add things. Owners also get a link to the Dashboard here.</p>
+        <p><strong>Notifications:</strong> green cards at the top of Home (and on the job itself) tell you when a client accepts a quote, and when Xero shows an application or invoice as paid. They stay for 14 days; tap the cross to clear one on your device. Payments are checked in Xero automatically whenever the app is open (every few minutes), and the application or invoice is marked paid for you.</p>
       </S>
 
       <S title="Jobs, from enquiry to finished">

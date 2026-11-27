@@ -6,6 +6,7 @@ import { toggleTodo } from '../lib/planner/actions'
 import { addDaysIso, eventDays, mondayOf, newDayLabel, shortDay, timeText, todayIso, useEvents, useReminders, useTodos } from '../lib/planner/data'
 import { newId, save } from '../lib/sync/store'
 import { useLabels } from './planner/shared'
+import Notices from '../components/Notices'
 
 export default function Home() {
   const { profile, can, isOwner } = useAuth()
@@ -64,6 +65,7 @@ export default function Home() {
       {!lockOn && (
         <Link className="card linkcard notice" to="/more/security"><strong>Protect this device</strong><span className="muted"> Set a PIN or Face ID so the app locks if the phone is left in the van.</span></Link>
       )}
+      <Notices />
       {isOwner && <Link className="card linkcard" to="/more/dashboard"><strong>Dashboard</strong><span className="muted"> Money owed, how late, pipeline and live jobs</span></Link>}
 
       {can('diary') && (

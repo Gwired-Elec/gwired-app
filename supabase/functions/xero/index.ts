@@ -168,8 +168,15 @@ async function refresh() {
       await admin.from("xero_invoice_links").update({ xero_number: inv.InvoiceNumber ?? l.xero_number, xero_status: inv.Status, total_pence: Math.round(Number(inv.Total ?? 0) * 100), paid_pence: amountPaid, last_error: null, synced_at: new Date().toISOString() }).eq("id", l.id);
       if (inv.Status === "PAID") {
         const when = xeroDate(inv.FullyPaidOnDate) ?? new Date().toISOString().slice(0, 10);
-        if (l.source_type === "application") await admin.from("applications").update({ status: "paid", paid_pence: amountPaid, paid_date: when }).eq("id", l.source_id).neq("status", "paid");
-        else await admin.from("invoices").update({ status: "paid", paid_date: when }).eq("id", l.source_id).neq("status", "paid");
+        // mark it paid, and (only if it was not already) leave a note on the job so the team sees it
+        const done = l.source_type === "application"
+          ? await admin.from("applications").update({ status: "paid", paid_pence: amountPaid, paid_date: when }).eq("id", l.source_id).neq("status", "paid").select("job_id, number")
+          : await admin.from("invoices").update({ status: "paid", paid_date: when }).eq("id", l.source_id).neq("status", "paid").select("job_id, number");
+        const row = done.data?.[0];
+        if (row) {
+          const label = (l.source_type === "application" ? "Application " : "Invoice ") + row.number;
+          await admin.from("activity_log").insert({ entity: "job", entity_id: row.job_id, action: "payment_received", detail: { label, amount_pence: amountPaid, xero_number: inv.InvoiceNumber ?? null, date: when }, user_name: "Xero" });
+        }
         paid += 1;
       }
     }

@@ -14,6 +14,7 @@ import { fmtDate, JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow,
 import { formatGBP, parsePounds, toInputPounds } from '../lib/money'
 import { db, type Row } from '../lib/sync/db'
 import { diff, logActivity, save } from '../lib/sync/store'
+import Notices from '../components/Notices'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
 const TABS = ['Overview', 'Walkaround', 'Estimate', 'Variations', 'Applications', 'Costs', 'To-dos', 'Diary', 'Files'] as const
@@ -42,6 +43,7 @@ export default function JobDetail() {
   return (
     <>
       <p><Link to="/jobs">← Jobs</Link></p>
+      <Notices jobId={job.id} />
       <div className="rowtop">
         <div>
           <div className="muted small">{job.job_number ?? 'Number pending (sent when synced)'}{unsynced.has(job.id) && <span className="badge"> not yet synced</span>}</div>

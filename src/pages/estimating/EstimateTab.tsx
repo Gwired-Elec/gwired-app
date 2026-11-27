@@ -115,7 +115,7 @@ function Revisions({ estimates, lines, current, onPick, onNew }: { estimates: Es
       </div>
       <div className="chips" role="group" aria-label="Revisions">
         {estimates.map((e) => (
-          <button key={e.id} className={`chip ${e.id === current.id ? 'on' : ''}`} onClick={() => onPick(e.id)}>Rev {revLetter(e.rev)} <span>{e.status}</span></button>
+          <button key={e.id} className={`chip ${e.status === 'accepted' ? 'accepted' : ''} ${e.id === current.id ? 'on' : ''}`} onClick={() => onPick(e.id)}>Rev {revLetter(e.rev)} <span>{e.status}</span></button>
         ))}
       </div>
       {estimates.length > 1 && (
@@ -124,7 +124,7 @@ function Revisions({ estimates, lines, current, onPick, onNew }: { estimates: Es
           <tbody>
             {rows.map(({ e, t }, i) => (
               <tr key={e.id}>
-                <td>{revLetter(e.rev)}</td><td>{e.status}</td><td>{formatGBP(t.netPence)}</td>
+                <td>{revLetter(e.rev)}</td><td className={e.status === 'accepted' ? 'st-accepted' : undefined}>{e.status}</td><td>{formatGBP(t.netPence)}</td>
                 <td>{i === 0 ? '' : `${t.netPence - rows[i - 1].t.netPence >= 0 ? '+' : '−'}${formatGBP(Math.abs(t.netPence - rows[i - 1].t.netPence))}`}</td>
                 {seeCost && <td>{t.marginPct}%</td>}
               </tr>

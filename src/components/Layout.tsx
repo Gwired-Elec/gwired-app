@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import SyncIndicator from './SyncIndicator'
+import { useAuth } from '../lib/auth'
+import { useXeroAutoCheck } from '../lib/xero/xero'
 
 const TABS = [
   { to: '/', label: 'Home', icon: '⌂', end: true },
@@ -11,6 +13,8 @@ const TABS = [
 
 // Phone: bottom tab bar. iPad / desktop (>= 768px): left sidebar. Same links, CSS decides which shows.
 export default function Layout() {
+  const { can } = useAuth()
+  useXeroAutoCheck(can('estimates.edit'))
   return (
     <div className="shell">
       <aside className="side" aria-label="Main">
