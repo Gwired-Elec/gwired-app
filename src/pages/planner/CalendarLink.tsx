@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { supabase, supabaseUrl } from '../../lib/supabase'
 
-export default function CalendarLink() {
+export default function CalendarLink({ onDownload }: { onDownload: () => void }) {
   const [token, setToken] = useState('')
   const [mine, setMine] = useState(true)
   const [open, setOpen] = useState(false)
@@ -22,9 +22,10 @@ export default function CalendarLink() {
 
   return (
     <div className="card">
-      <button className="linklike" onClick={() => { setOpen(!open); if (!open && !token) void load() }} aria-expanded={open}><strong>Show in Apple Calendar</strong> <span className="muted small">{open ? '▴' : '▾'}</span></button>
+      <button className="linklike" onClick={() => { setOpen(!open); if (!open && !token) void load() }} aria-expanded={open}><strong>Calendar options</strong> <span className="muted small">{open ? '▴' : '▾'}</span></button>
       {open && (
         <>
+          <h3 style={{ margin: '12px 0 4px' }}>Show in Apple Calendar</h3>
           <p className="muted small">Subscribe your phone's calendar to the diary. It updates by itself (Apple decides how often, usually within the hour). It is read-only: add and change entries here in G|Wired. The link is private to you, so do not share it.</p>
           <label className="check"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Only entries and to-dos for me (or for anyone)</label>
           {err && <p className="err" role="alert">{err}</p>}
@@ -37,6 +38,9 @@ export default function CalendarLink() {
               <button className="btn" onClick={() => confirm('Make a new link? The old one stops working, and you will need to subscribe again.') && load(true)}>Make a new link (stops the old one)</button>
             </>
           )}
+          <h3 style={{ margin: '16px 0 4px' }}>Download a calendar file</h3>
+          <p className="muted small">A one-off copy of the diary as it is now, to open in Outlook, Google or Apple Calendar. It does not update afterwards.</p>
+          <button className="btn" onClick={onDownload}>Download calendar file</button>
         </>
       )}
     </div>

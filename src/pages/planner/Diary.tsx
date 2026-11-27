@@ -120,7 +120,6 @@ export function DiaryPanel({ jobId }: { jobId?: string }) {
         </div>
         <div className="actions" style={{ marginTop: 8 }}>
           {edit && <button className="btn primary" onClick={() => setForm({ date: view === 'month' ? picked : t0 })}>+ Add a diary entry</button>}
-          <button className="btn" onClick={download} title="A calendar file you can open in Outlook, Google or Apple Calendar">Download calendar file</button>
         </div>
       </div>
       {form && <EventForm key={form.id ?? 'new' + form.date} ev={evs.find((e) => e.id === form.id)} date={form.date} labels={labels} me={me} onClose={() => setForm(null)} />}
@@ -148,7 +147,7 @@ export function DiaryPanel({ jobId }: { jobId?: string }) {
           <DayBlock d={picked} />
         </>
       )}
-      <CalendarLink />
+      <CalendarLink onDownload={download} />
     </>
   )
 }
