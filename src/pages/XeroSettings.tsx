@@ -38,19 +38,40 @@ export default function XeroSettings() {
         {!connected && <button className="btn primary" onClick={connect} disabled={busy}>{busy ? 'Opening Xero…' : 'Connect to Xero'}</button>}
         {connected && <button className="btn" onClick={disconnect} disabled={busy}>Disconnect Xero</button>}
       </div>
-      {!connected && (
-        <div className="card">
-          <h2>One-off setup (about ten minutes)</h2>
-          <ol className="small">
-            <li>In Xero, go to <strong>developer.xero.com</strong> then My Apps, then New app. Type: <strong>Web app</strong>. Company or application URL: <strong>https://gwired-app.web.app</strong>.</li>
-            <li>Redirect URI: <strong style={{ wordBreak: 'break-all' }}>{supabaseUrl}/functions/v1/xero</strong></li>
-            <li>Copy the app's <strong>Client id</strong> and create a <strong>Client secret</strong>.</li>
-            <li>In Supabase, Edge Functions, <strong>xero</strong>, Secrets, add <strong>XERO_CLIENT_ID</strong>, <strong>XERO_CLIENT_SECRET</strong> and <strong>APP_URL</strong> (https://gwired-app.web.app).</li>
-            <li>Come back here and tap Connect to Xero, sign in, and choose the G|Wired organisation.</li>
-          </ol>
-          <p className="muted small">Invoices arrive in Xero as <strong>drafts</strong> on your sales account 200, for the bookkeeper to check and approve. The tax types used are UK standard 20%, zero rate and domestic reverse charge.</p>
-        </div>
-      )}
+      {/* The setup steps always stay here, so they can be followed again if the connection fails or has to be redone */}
+      <details className="card" open={!connected || !!err}>
+        <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Setup steps (follow these again if the connection fails)</summary>
+        <h3 style={{ margin: '12px 0 4px' }}>1. Create the Xero app (once)</h3>
+        <ol className="small">
+          <li>In Xero, go to <strong>developer.xero.com</strong>, then My Apps, then New app.</li>
+          <li>App type: <strong>Web app</strong>. Company or application URL: <strong>https://gwired-app.web.app</strong>.</li>
+          <li>Redirect URI (copy it exactly): <strong style={{ wordBreak: 'break-all' }}>{supabaseUrl}/functions/v1/xero</strong></li>
+          <li>Open the app's <strong>Configuration</strong> page. Copy the <strong>Client id</strong>, then choose <strong>Generate a secret</strong> and copy it straight away (Xero only shows it once).</li>
+        </ol>
+        <h3 style={{ margin: '12px 0 4px' }}>2. Put the Xero details into Supabase</h3>
+        <ol className="small">
+          <li>Supabase, Edge Functions, <strong>xero</strong>, then Secrets.</li>
+          <li>Add <strong>XERO_CLIENT_ID</strong> (the Client id), <strong>XERO_CLIENT_SECRET</strong> (the secret) and <strong>APP_URL</strong> (<strong>https://gwired-app.web.app</strong>).</li>
+          <li>Check the function is deployed with <strong>Verify JWT switched off</strong>.</li>
+        </ol>
+        <h3 style={{ margin: '12px 0 4px' }}>3. Connect</h3>
+        <ol className="small">
+          <li>Tap <strong>Connect to Xero</strong> above, sign in to Xero, and choose the G|Wired organisation.</li>
+          <li>You come back to this page and it says Connected.</li>
+        </ol>
+        <h3 style={{ margin: '12px 0 4px' }}>If it fails</h3>
+        <ul className="small">
+          <li><strong>Xero says the redirect address does not match:</strong> the Redirect URI in the Xero app must be exactly the one shown above, with nothing added or missing.</li>
+          <li><strong>"Not set up on the server yet":</strong> the secrets in step 2 are missing or misspelt. Add them again, then retry.</li>
+          <li><strong>"Refused the sign-in" or an invalid client message:</strong> the Client id or secret was copied wrongly. Generate a new secret in Xero, update XERO_CLIENT_SECRET, and retry.</li>
+          <li><strong>"Couldn't reach the Xero service":</strong> check you are online and that the <strong>xero</strong> function is deployed (name must be exactly xero).</li>
+          <li><strong>The page just shows an error after signing in to Xero:</strong> Verify JWT is probably still on. Turn it off for the function.</li>
+          <li><strong>"Invalid scope":</strong> your Xero app needs different permission names. Tell the person who built the app which ones Xero lists, or set the secret <strong>XERO_SCOPES</strong>.</li>
+          <li><strong>The link has expired:</strong> just tap Connect to Xero again.</li>
+          <li>To start again from scratch, tap <strong>Disconnect Xero</strong>, then follow these steps from the top.</li>
+        </ul>
+        <p className="muted small">Invoices arrive in Xero as <strong>drafts</strong> on your sales account 200, for the bookkeeper to check and approve. The tax types used are UK standard 20%, zero rate and domestic reverse charge. If Xero rejects an invoice, the reason shows under the invoice in the app.</p>
+      </details>
     </>
   )
 }
