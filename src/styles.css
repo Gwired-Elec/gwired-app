@@ -188,7 +188,7 @@ table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2);
 /* walkaround: photo and note buttons, thumbnails */
 .walk-actions { display: flex; gap: 8px; margin-top: 10px; }
 .walk-actions > .iconbtn { flex: 1 1 0; min-width: 0; }
-.iconbtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.iconbtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 48px; margin: 0; padding: 0 16px; font-size: 16px; line-height: 1.2; text-align: center; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .thumbs { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 .thumb { flex: none; position: relative; width: 72px; height: 72px; padding: 0; border: 0; border-radius: 8px; background: none; overflow: hidden; cursor: pointer; }
 .thumb img, .thumb .ph { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; background: var(--grey-1, #1b1b1d); display: block; }
