@@ -92,11 +92,13 @@ input:disabled, select:disabled, textarea:disabled { background: var(--grey-1); 
 .pill { text-decoration: none; color: inherit; }
 .pill.bad { color: var(--red); background: #fee2e2; }
 .sidesync { position: absolute; bottom: calc(16px + var(--safe-bottom)); left: 12px; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.toolbar input[type=text] { flex: 1 1 200px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
+.toolbar input[type=text] { flex: 1 1 120px; min-width: 0; }
+.toolbar .newjob { width: auto; margin: 0; flex: 0 0 auto; }
+@media (max-width: 520px) { .toolbar { flex-wrap: nowrap; } .toolbar .newjob .lbl { display: none; } .toolbar .newjob { padding: 0 16px; font-size: 1.3rem; } .toolbar input[type=text] { padding-left: 10px; padding-right: 10px; } }
 .toolbar select { flex: 0 1 200px; }
 .seg { display: flex; border: 1px solid var(--grey-2); border-radius: 10px; overflow: hidden; background: var(--white); }
-.seg button { border: 0; background: none; min-height: 48px; padding: 0 16px; cursor: pointer; }
+.seg button { border: 0; background: none; min-height: 48px; padding: 0 14px; cursor: pointer; display: grid; place-items: center; }
 .seg button.on { background: var(--black); color: var(--white); }
 .job { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .jobmain { display: flex; flex-direction: column; gap: 2px; text-decoration: none; min-width: 0; flex: 1; }

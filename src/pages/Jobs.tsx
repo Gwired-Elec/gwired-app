@@ -40,14 +40,21 @@ export default function Jobs({ archive = false }: { archive?: boolean }) {
     <>
       <div className="rowtop">
         <h1>{archive ? 'Archived jobs' : 'Jobs'}</h1>
-        {archive ? <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={() => nav('/jobs')}>← Jobs</button> : editable && <button className="btn primary" style={{ width: 'auto', marginTop: 0 }} onClick={() => nav('/jobs/new')}>+ New job</button>}
+        {archive && <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={() => nav('/jobs')}>← Jobs</button>}
       </div>
       <div className="toolbar">
         <input type="text" placeholder="Search jobs…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search jobs" />
-        <div className="seg" role="group" aria-label="View">
-          <button className={view === 'list' ? 'on' : ''} onClick={() => setV('list')}>List</button>
-          <button className={view === 'board' ? 'on' : ''} onClick={() => setV('board')}>Board</button>
-        </div>
+        {!archive && (
+          <div className="seg" role="group" aria-label="View">
+            <button className={view === 'list' ? 'on' : ''} onClick={() => setV('list')} aria-label="List view" title="List">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" /></svg>
+            </button>
+            <button className={view === 'board' ? 'on' : ''} onClick={() => setV('board')} aria-label="Board view" title="Board">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="4" height="13" rx="1" /><rect x="8" y="3.5" width="4" height="9" rx="1" /><rect x="13.5" y="3.5" width="4" height="11" rx="1" /></svg>
+            </button>
+          </div>
+        )}
+        {!archive && editable && <button className="btn primary newjob" aria-label="New job" onClick={() => nav('/jobs/new')}>+<span className="lbl"> New job</span></button>}
       </div>
       {!archive && <div className="chips" role="group" aria-label="Filter by status">
         <button className={`chip ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>All active <span>{jobs?.length ?? 0}</span></button>

@@ -3,7 +3,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
-  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings'] as const
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings', 'estimates', 'estimate_sections', 'estimate_lines'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -25,6 +25,9 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   prelim_items: ['amount_pence'],
   estimating_settings: [],
   import_mappings: [],
+  estimates: [],
+  estimate_sections: [],
+  estimate_lines: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -45,6 +48,9 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   prelim_items: ['name', 'kind', 'amount_pence', 'percent', 'active', 'deleted_at'],
   estimating_settings: ['default_markup_pct', 'oh_pct', 'profit_pct', 'contingency_pct', 'stale_days', 'vat_rate', 'method_defaults'],
   import_mappings: ['supplier_id', 'mapping', 'deleted_at'],
+  estimates: ['job_id', 'rev', 'name', 'status', 'method', 'labour_rate_id', 'oh_pct', 'profit_pct', 'contingency_pct', 'discount_pct', 'vat_rate', 'reverse_charge', 'notes', 'issued_at', 'deleted_at'],
+  estimate_sections: ['estimate_id', 'name', 'sort', 'deleted_at'],
+  estimate_lines: ['estimate_id', 'section_id', 'sort', 'kind', 'description', 'qty', 'unit', 'material_id', 'point_rate_id', 'labour_rate_id', 'unit_cost', 'unit_sell', 'hours_per_unit', 'labour_cost_hr_pence', 'labour_charge_hr_pence', 'markup_pct', 'price_date', 'price_source', 'notes', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -102,6 +108,9 @@ export class GwDb extends Dexie {
   prelim_items!: Table<Row, string>
   estimating_settings!: Table<Row, string>
   import_mappings!: Table<Row, string>
+  estimates!: Table<Row, string>
+  estimate_sections!: Table<Row, string>
+  estimate_lines!: Table<Row, string>
 
   constructor(userId: string) {
     super('gwired-' + userId)
@@ -129,6 +138,12 @@ export class GwDb extends Dexie {
       prelim_items: 'id',
       estimating_settings: 'id',
       import_mappings: 'id, supplier_id',
+    })
+    // version 3 (Phase 2b): estimates
+    this.version(3).stores({
+      estimates: 'id, job_id',
+      estimate_sections: 'id, estimate_id',
+      estimate_lines: 'id, estimate_id, section_id',
     })
   }
 }
