@@ -15,13 +15,14 @@ export interface Col {
 }
 
 // One card per row with labelled fields. Each field saves when you leave it (or tick/choose it); nothing needs a connection.
-export default function RateGrid({ tbl, rows, cols, editable, newDefaults, addLabel, empty, extra }: {
+export default function RateGrid({ tbl, rows, cols, editable, newDefaults, addLabel, empty, extra, twoColumns }: {
   tbl: SyncTable
   rows: Row[] | undefined
   cols: Col[]
   editable: boolean
   newDefaults: Record<string, unknown>
   addLabel: string
+  twoColumns?: boolean // always lay the fields out two across (for cards with a few money boxes)
   empty?: string
   extra?: (row: Row) => ReactNode
 }) {
@@ -32,7 +33,7 @@ export default function RateGrid({ tbl, rows, cols, editable, newDefaults, addLa
       {rows && !rows.length && <div className="card"><p className="muted">{empty ?? 'Nothing here yet.'}</p></div>}
       {rows?.map((r) => (
         <div className="card" key={r.id}>
-          <div className="fieldgrid">
+          <div className={twoColumns ? 'fieldgrid two' : 'fieldgrid'}>
             {shown.map((c) => <Cell key={c.key} tbl={tbl} row={r} col={c} editable={editable} />)}
           </div>
           {extra?.(r)}

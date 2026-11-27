@@ -49,13 +49,13 @@ export function LabourRates() {
     { key: 'day_rate_pence', label: 'Charged out per day', kind: 'money' },
     { key: 'night_cost_pence', label: 'Night shift cost', kind: 'money', hidden: !g.cost },
     { key: 'night_rate_pence', label: 'Night shift charged out', kind: 'money' },
-    { key: 'active', label: 'In use', kind: 'bool' },
+    { key: 'active', label: 'In use', kind: 'bool', wide: true },
   ]
   const unset = rows?.filter((r) => r.active !== false && !r.day_rate_pence).length
   return (
     <Page title="Labour rates" intro="What each grade costs you and what you charge out, for an 8-hour day, plus the price for a night shift. Hourly rates are worked out from the day (divided by 8) and used to price labour units on materials.">
       {!!unset && <p className="err">{unset} grade{unset === 1 ? ' has' : 's have'} no rate set yet. Estimates will show £0 labour for {unset === 1 ? 'it' : 'them'}.</p>}
-      <RateGrid tbl="labour_rates" rows={rows} cols={cols} editable={g.edit} newDefaults={{ name: 'New grade', sort: (rows?.at(-1)?.sort ?? 0) + 10, day_cost_pence: 0, day_rate_pence: 0, night_cost_pence: 0, night_rate_pence: 0, active: true }} addLabel="Add grade"
+      <RateGrid tbl="labour_rates" rows={rows} cols={cols} editable={g.edit} newDefaults={{ name: 'New grade', sort: (rows?.at(-1)?.sort ?? 0) + 10, day_cost_pence: 0, day_rate_pence: 0, night_cost_pence: 0, night_rate_pence: 0, active: true }} addLabel="Add grade" twoColumns
         extra={(row) => { const x = row as unknown as LabourRate; return <p className="muted small" style={{ margin: '8px 0 0' }}>Works out at {formatGBP(hourlyCharge(x))} an hour charged out{g.cost ? `, ${formatGBP(hourlyCost(x))} an hour cost` : ''} (8-hour day).</p> }} />
     </Page>
   )
