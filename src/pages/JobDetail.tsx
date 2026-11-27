@@ -13,7 +13,8 @@ import { useAuth } from '../lib/auth'
 import { JOB_TYPES, useClients, useReasons, useStatuses, useStatusFlow, type Job } from '../lib/jobs'
 import { formatGBP, parsePounds, toInputPounds } from '../lib/money'
 import { db, type Row } from '../lib/sync/db'
-import { diff, logActivity, save } from '../lib/sync/store'
+import { diff, logActivity, newId, save } from '../lib/sync/store'
+import { addDaysIso, todayIso } from '../lib/planner/data'
 import Notices from '../components/Notices'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
@@ -95,6 +96,12 @@ function Overview({ job, fin, editable, user }: { job: Job; fin: Row | undefined
     if (Object.keys(changes).length) {
       await save('jobs', job.id, changes)
       await logActivity('job', job.id, 'edited', { fields: Object.keys(changes) }, user)
+      // a main contractor means RAMS are needed: leave a to-do (once) so they are not forgotten
+      const mc = String(changes.main_contractor ?? '').trim()
+      if (mc && can('todos')) {
+        const have = (await db().todos.where('job_id').equals(job.id).filter((t) => !t.deleted_at && String(t.title).startsWith('Create RAMS')).count()) > 0
+        if (!have) await save('todos', newId(), { title: `Create RAMS (main contractor: ${mc})`, job_id: job.id, assigned_to: null, due_date: addDaysIso(todayIso(), 2), recurrence: 'none', show_in_diary: true, created_by: user.id })
+      }
     }
     if (showMoney && editMoney) {
       const pence = money.value.trim() === '' ? null : parsePounds(money.value)
