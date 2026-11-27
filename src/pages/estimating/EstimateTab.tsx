@@ -409,13 +409,21 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
         </div>
       )}
 
-      {editable && walkNew.length > 0 && (
-        <div className="card">
-          <h2>Site walkaround</h2>
-          <p className="muted small">{walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround {walkNew.length === 1 ? 'is' : 'are'} not on this estimate yet. Each area becomes a section and each item a line with its quantity and unit, ready for you to price. Anything already on the estimate is skipped.</p>
-          <button className="btn primary" onClick={importWalkaround}>Bring in {walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround</button>
-        </div>
-      )}
+      <div className="card">
+        <h2>Bring in the site walkaround</h2>
+        {!walk ? <p className="muted small">Loading…</p> : !walk.elements.length ? (
+          <p className="muted small">No items on this job's walkaround yet. Add areas and items on the job's <strong>Walkaround</strong> tab, then come back here to bring them into the estimate.</p>
+        ) : !editable ? (
+          <p className="muted small">This estimate is {est.status}, so it can't be changed. Start a new revision to bring in more items.</p>
+        ) : walkNew.length === 0 ? (
+          <p className="muted small">Everything on the walkaround ({walk.elements.length} item{walk.elements.length === 1 ? '' : 's'}) is already on this estimate.</p>
+        ) : (
+          <>
+            <p className="muted small">{walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround {walkNew.length === 1 ? 'is' : 'are'} not on this estimate yet. Each area becomes a section and each item a line with its quantity, unit and note, ready for you to price. Anything already here is skipped.</p>
+            <button className="btn primary" onClick={importWalkaround}>Bring in {walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround</button>
+          </>
+        )}
+      </div>
       {ordered.map((s) => {
         const sl = lines.filter((l) => l.section_id === s.id).sort((a, b) => a.sort - b.sort)
         const sectionTotal = sl.reduce((a, l) => a + lineSell(l, uplift), 0)

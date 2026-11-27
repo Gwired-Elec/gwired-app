@@ -8,7 +8,7 @@ import { keepLocal, photoWaiting, shrinkImage, uploadPendingPhotos, usePhotoUrl 
 import SowExport from './SowExport'
 
 export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
-export interface Photo extends Row { area_id: string; path: string; caption: string | null; sort: number }
+export interface Photo extends Row { area_id: string; element_id: string | null; path: string; caption: string | null; sort: number }
 export interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
 
 const alive = (r: Row) => !r.deleted_at
@@ -51,7 +51,7 @@ export default function WalkaroundTab({ job }: { job: Job }) {
     <>
       <div className="card">
         <h2>Site walkaround</h2>
-        <p className="muted small">Add each area as you walk the site. Write notes first, then list what is needed there with a quantity. It saves on this device straight away and syncs when there is signal. Add photos with the camera button. They are kept on the phone and uploaded when there is signal.</p>
+        <p className="muted small">Add each area as you walk the site. Write notes first, then list what is needed there with a quantity. It saves on this device straight away and syncs when there is signal. Add photos against each item. They are kept on the phone and uploaded when there is signal.</p>
         <div className="chips" role="group" aria-label="Quick add an area">
           {COMMON.filter((c) => !areas.some((a) => a.name.toLowerCase() === c.toLowerCase())).map((c) => <button key={c} className="chip" onClick={() => addArea(c)}>+ {c}</button>)}
         </div>
@@ -68,56 +68,78 @@ export default function WalkaroundTab({ job }: { job: Job }) {
   )
 }
 
-function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: string; elements: Element[]; photos: Photo[] }) {
+// shrink, keep on the device, and record each picture against one item (the upload happens when there is signal)
+async function attachPhotos(files: File[], jobId: string, areaId: string, elementId: string, firstSort: number) {
+  let sort = firstSort
+  for (const file of files) {
+    const blob = await shrinkImage(file)
+    const id = newId()
+    await keepLocal(id, blob)
+    await save('walkaround_photos', id, { area_id: areaId, element_id: elementId, path: `${jobId}/${id}.jpg`, sort })
+    sort += 10
+  }
+  void uploadPendingPhotos()
+}
+
+function AddPhotosButton({ busy, onFiles, label = '📷 Add photos' }: { busy?: boolean; onFiles: (f: File[]) => void; label?: string }) {
+  return (
+    <label className="btn" style={{ marginTop: 8, opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Adding…' : label}
+      <input type="file" accept="image/*" multiple disabled={busy} style={{ display: 'none' }} onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) onFiles(fs) }} />
+    </label>
+  )
+}
+
+// the photos of one item, with a button to add more
+function ItemPhotos({ jobId, areaId, el, photos }: { jobId: string; areaId: string; el: Element; photos: Photo[] }) {
   const [busy, setBusy] = useState(false)
-  const [photoErr, setPhotoErr] = useState('')
-  async function addPhotos(files: FileList | null) {
-    if (!files?.length) return
-    setBusy(true)
-    setPhotoErr('')
-    try {
-      let sort = (photos.at(-1)?.sort ?? 0) + 10
-      for (const file of Array.from(files)) {
-        const blob = await shrinkImage(file)
-        const id = newId()
-        await keepLocal(id, blob)
-        await save('walkaround_photos', id, { area_id: a.id, path: `${jobId}/${id}.jpg`, sort })
-        sort += 10
-      }
-      void uploadPendingPhotos()
-    } catch (e) {
-      setPhotoErr(e instanceof Error ? e.message : 'A photo could not be added.')
-    }
+  const [err, setErr] = useState('')
+  async function add(files: File[]) {
+    setBusy(true); setErr('')
+    try { await attachPhotos(files, jobId, areaId, el.id, (photos.at(-1)?.sort ?? 0) + 10) } catch (e) { setErr(e instanceof Error ? e.message : 'A photo could not be added.') }
     setBusy(false)
   }
+  return (
+    <>
+      {photos.length > 0 && <div className="photos" style={{ marginTop: 8 }}>{photos.map((p) => <PhotoTile key={p.id} photo={p} />)}</div>}
+      <AddPhotosButton busy={busy} onFiles={add} label={photos.length ? '📷 Add another photo' : '📷 Add photos of this item'} />
+      {err && <p className="err" role="alert">{err}</p>}
+    </>
+  )
+}
+
+function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: string; elements: Element[]; photos: Photo[] }) {
   const [desc, setDesc] = useState('')
   const [qty, setQty] = useState('1')
   const [unit, setUnit] = useState('nr')
   const [note, setNote] = useState('')
+  const [pending, setPending] = useState<File[]>([]) // photos chosen for the new item before it is added
+  const [adding, setAdding] = useState(false)
+  const [addErr, setAddErr] = useState('')
   const addEl = async (e: FormEvent) => {
     e.preventDefault()
     const q = Number(qty.replace(/,/g, ''))
     if (!desc.trim() || !Number.isFinite(q) || q < 0) return
-    await save('walkaround_elements', newId(), { area_id: a.id, description: desc.trim(), qty: q, unit: unit.trim() || 'nr', notes: note.trim() || null, sort: (elements.at(-1)?.sort ?? 0) + 10 })
-    setDesc(''); setQty('1'); setNote('')
+    setAdding(true); setAddErr('')
+    const id = newId()
+    try {
+      await save('walkaround_elements', id, { area_id: a.id, description: desc.trim(), qty: q, unit: unit.trim() || 'nr', notes: note.trim() || null, sort: (elements.at(-1)?.sort ?? 0) + 10 })
+      if (pending.length) await attachPhotos(pending, jobId, a.id, id, 10)
+      setDesc(''); setQty('1'); setNote(''); setPending([])
+    } catch (er) {
+      setAddErr(er instanceof Error ? er.message : 'The item was added but a photo could not be.')
+    }
+    setAdding(false)
   }
+  const loose = photos.filter((p) => !p.element_id) // photos taken against the whole area before photos moved to items
   return (
     <div className="card">
       <div className="rowtop">
         <input key={a.name} type="text" defaultValue={a.name} aria-label="Area name" style={{ fontWeight: 700, flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value !== a.name && save('walkaround_areas', a.id, { name: e.target.value.trim() })} />
-        <button className="btn" style={{ width: 'auto', marginTop: 0 }} aria-label={`Remove ${a.name}`} onClick={() => confirm(`Remove ${a.name} and everything listed in it?`) && (elements.forEach((e) => void remove('walkaround_elements', e.id)), void remove('walkaround_areas', a.id))}>✕</button>
+        <button className="btn" style={{ width: 'auto', marginTop: 0 }} aria-label={`Remove ${a.name}`} onClick={() => confirm(`Remove ${a.name} and everything listed in it?`) && (elements.forEach((e) => void remove('walkaround_elements', e.id)), photos.forEach((p) => void remove('walkaround_photos', p.id)), void remove('walkaround_areas', a.id))}>✕</button>
       </div>
       <label htmlFor={'n' + a.id}>Notes</label>
       <textarea id={'n' + a.id} key={a.notes ?? ''} rows={3} defaultValue={a.notes ?? ''} placeholder="What you see, what the client wants, access, existing condition…" onBlur={(e) => e.target.value !== (a.notes ?? '') && save('walkaround_areas', a.id, { notes: e.target.value.trim() || null })} />
-
-      <h3 style={{ margin: '14px 0 4px' }}>Photos</h3>
-      {!photos.length && <p className="muted small">No photos yet.</p>}
-      <div className="photos">{photos.map((p) => <PhotoTile key={p.id} photo={p} />)}</div>
-      <label className="btn" style={{ marginTop: 8, opacity: busy ? 0.6 : 1 }}>
-        {busy ? 'Adding…' : '📷 Add photos'}
-        <input type="file" accept="image/*" multiple disabled={busy} style={{ display: 'none' }} onChange={(e) => { void addPhotos(e.target.files); e.target.value = '' }} />
-      </label>
-      {photoErr && <p className="err" role="alert">{photoErr}</p>}
 
       <h3 style={{ margin: '14px 0 4px' }}>What is needed here</h3>
       {!elements.length && <p className="muted small">Nothing listed yet.</p>}
@@ -125,7 +147,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
         <div key={el.id} className="lcard">
           <div className="rowtop">
             <input key={el.description} type="text" defaultValue={el.description} aria-label="What is needed" style={{ flex: 1 }} onBlur={(e) => e.target.value.trim() && e.target.value !== el.description && save('walkaround_elements', el.id, { description: e.target.value.trim() })} />
-            <button className="btn" style={{ width: 'auto', marginTop: 0 }} aria-label={`Remove ${el.description}`} onClick={() => remove('walkaround_elements', el.id)}>✕</button>
+            <button className="btn" style={{ width: 'auto', marginTop: 0 }} aria-label={`Remove ${el.description}`} onClick={() => (photos.filter((p) => p.element_id === el.id).forEach((p) => void remove('walkaround_photos', p.id)), void remove('walkaround_elements', el.id))}>✕</button>
           </div>
           <div className="lgrid">
             <div className="f"><label>Qty</label>
@@ -134,6 +156,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
               <input key={'u' + el.unit} type="text" defaultValue={el.unit} list="wunits" onBlur={(e) => e.target.value.trim() && e.target.value !== el.unit && save('walkaround_elements', el.id, { unit: e.target.value.trim() })} /></div>
           </div>
           <input key={'m' + (el.notes ?? '')} type="text" defaultValue={el.notes ?? ''} placeholder="Note (optional)" aria-label="Note" style={{ marginTop: 8 }} onBlur={(e) => e.target.value !== (el.notes ?? '') && save('walkaround_elements', el.id, { notes: e.target.value.trim() || null })} />
+          <ItemPhotos jobId={jobId} areaId={a.id} el={el} photos={photos.filter((p) => p.element_id === el.id)} />
         </div>
       ))}
       <form onSubmit={addEl} className="lcard">
@@ -144,8 +167,17 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" aria-label="Note for this item" style={{ marginTop: 8 }} />
-        <button className="btn" disabled={!desc.trim()}>+ Add item</button>
+        <AddPhotosButton onFiles={(fs) => setPending((p) => [...p, ...fs])} label={pending.length ? `📷 ${pending.length} photo${pending.length === 1 ? '' : 's'} ready (add more)` : '📷 Add photos of this item'} />
+        {pending.length > 0 && <button type="button" className="link small" onClick={() => setPending([])}>Clear the photos</button>}
+        {addErr && <p className="err" role="alert">{addErr}</p>}
+        <button className="btn" disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
       </form>
+      {loose.length > 0 && (
+        <>
+          <h3 style={{ margin: '14px 0 4px' }}>Other photos of this area</h3>
+          <div className="photos">{loose.map((p) => <PhotoTile key={p.id} photo={p} />)}</div>
+        </>
+      )}
       <datalist id="wunits">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
     </div>
   )

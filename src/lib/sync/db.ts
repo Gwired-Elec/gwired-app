@@ -62,7 +62,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   walkarounds: ['job_id', 'title', 'visit_date', 'notes', 'deleted_at'],
   walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
   walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
-  walkaround_photos: ['area_id', 'path', 'caption', 'sort', 'deleted_at'],
+  walkaround_photos: ['area_id', 'element_id', 'path', 'caption', 'sort', 'deleted_at'],
 }
 
 export interface OutboxOp {

@@ -43,14 +43,17 @@ export default function SowExport({ job, areas, elements, photos }: { job: Job; 
       const client = clients?.find((c) => c.id === job.client_id) ?? null
       let missing = 0
       const sowAreas = await Promise.all(areas.map(async (a) => {
-        const pics: { blob: Blob; caption: string | null }[] = []
-        if (kind === 'pdf' && withPhotos) {
-          for (const p of photos.filter((x) => x.area_id === a.id)) {
+        const load = async (list: Photo[]) => {
+          const out: { blob: Blob; caption: string | null }[] = []
+          if (kind !== 'pdf' || !withPhotos) return out
+          for (const p of list) {
             const blob = await getPhotoBlob(p)
-            if (blob) pics.push({ blob, caption: p.caption }); else missing += 1
+            if (blob) out.push({ blob, caption: p.caption }); else missing += 1
           }
+          return out
         }
-        return { name: a.name, notes: a.notes, items: elements.filter((e) => e.area_id === a.id).map((e) => ({ description: e.description, qty: e.qty, unit: e.unit, notes: e.notes })), photos: pics }
+        const items = await Promise.all(elements.filter((e) => e.area_id === a.id).map(async (e) => ({ description: e.description, qty: e.qty, unit: e.unit, notes: e.notes, photos: await load(photos.filter((p) => p.element_id === e.id)) })))
+        return { name: a.name, notes: a.notes, items, photos: await load(photos.filter((p) => p.area_id === a.id && !p.element_id)) }
       }))
       const input: SowInput = {
         company, job: { job_number: job.job_number, title: job.title, site_address: job.site_address },

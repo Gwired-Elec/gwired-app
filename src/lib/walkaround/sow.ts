@@ -6,8 +6,9 @@ import { clean, wrap } from '../estimating/quotePdf'
 import { revLetter } from '../estimating/estimate'
 
 export interface SowCompany { name: string; address?: string | null; vat_number?: string | null; company_number?: string | null; email?: string | null; phone?: string | null }
-export interface SowItem { description: string; qty: number; unit: string; notes: string | null }
-export interface SowArea { name: string; notes: string | null; items: SowItem[]; photos: { blob: Blob; caption: string | null }[] }
+export interface SowPhoto { blob: Blob; caption: string | null }
+export interface SowItem { description: string; qty: number; unit: string; notes: string | null; photos?: SowPhoto[] }
+export interface SowArea { name: string; notes: string | null; items: SowItem[]; photos: SowPhoto[] } // area photos: only any taken against the whole area
 export interface SowInput {
   company: SowCompany
   job: { job_number: string | null; title: string; site_address: string | null }
@@ -51,6 +52,28 @@ export async function buildSowPdf(q: SowInput): Promise<Uint8Array> {
   const newPage = (withHeader = false) => { page = pdf.addPage([W, H]); y = H - M; if (withHeader) header() }
   const need = (h: number, repeat = false) => { if (y - h < M + 34) newPage(repeat) }
   newPage()
+
+  // a grid of photos starting at x0 across a given width, 'cols' to a row, each with its caption underneath
+  const drawPhotos = async (list: SowPhoto[], x0: number, width: number, cols: number) => {
+    const gap = 10
+    const gw = (width - gap * (cols - 1)) / cols, maxH = gw * 0.75
+    for (let i = 0; i < list.length; i += cols) {
+      const embedded: { img: Awaited<ReturnType<PDFDocument['embedJpg']>>; cap: string | null }[] = []
+      for (const p of list.slice(i, i + cols)) {
+        try { embedded.push({ img: await pdf.embedJpg(new Uint8Array(await p.blob.arrayBuffer())), cap: p.caption }) } catch { /* skip a picture that cannot be read */ }
+      }
+      if (!embedded.length) continue
+      const dims = embedded.map((e) => { const sc = Math.min(gw / e.img.width, maxH / e.img.height); return { w: e.img.width * sc, h: e.img.height * sc } })
+      const rowHgt = Math.max(...dims.map((d) => d.h)) + 20
+      need(rowHgt)
+      embedded.forEach((e, k) => {
+        const x = x0 + k * (gw + gap)
+        page.drawImage(e.img, { x, y: y - dims[k].h, width: dims[k].w, height: dims[k].h })
+        if (e.cap) page.drawText(clean(wrap(e.cap, font, 8, gw)[0]), { x, y: y - dims[k].h - 10, size: 8, font, color: grey })
+      })
+      y -= rowHgt
+    }
+  }
 
   // masthead
   const co = q.company
@@ -105,7 +128,8 @@ export async function buildSowPdf(q: SowInput): Promise<Uint8Array> {
       for (const l of wrap(a.notes, font, 8.8, R - xDesc)) { need(13, true); text(l, xDesc, 8.8, font, grey); y -= 11.5 }
       y -= 4
     }
-    a.items.forEach((it, i) => {
+    for (let i = 0; i < a.items.length; i++) {
+      const it = a.items[i]
       const dl = wrap(it.description, font, 8.8, descW)
       const nl = it.notes && it.notes.trim() ? wrap(it.notes, font, 7.5, noteW) : []
       const DL = 11, NL = 10, PAD = 6
@@ -128,33 +152,18 @@ export async function buildSowPdf(q: SowInput): Promise<Uint8Array> {
       const bottom = rowTop - rowH
       page.drawLine({ start: { x: M, y: bottom }, end: { x: R, y: bottom }, thickness: 0.4, color: rule })
       y = bottom - 12
-    })
+      // this item's photos sit straight under it, three across
+      if (it.photos?.length) { y += 4; await drawPhotos(it.photos, xDesc, R - xDesc, 3); y -= 6 }
+    }
     if (!a.items.length) { need(14, true); text('No items listed for this area.', xDesc, 8.8, font, grey); y -= 14 }
 
-    // photos for this area, two across
+    // photos taken against the whole area (from before photos belonged to items)
     if (a.photos.length) {
       y -= 2
       need(30)
-      text(`PHOTOS: ${a.name.toUpperCase()}`, M, 7.5, bold, grey)
+      text(`OTHER PHOTOS: ${a.name.toUpperCase()}`, M, 7.5, bold, grey)
       y -= 10
-      const gw = (R - M - 12) / 2, maxH = gw * 0.75
-      for (let i = 0; i < a.photos.length; i += 2) {
-        const pair = a.photos.slice(i, i + 2)
-        const embedded: { img: Awaited<ReturnType<PDFDocument['embedJpg']>>; cap: string | null }[] = []
-        for (const p of pair) {
-          try { embedded.push({ img: await pdf.embedJpg(new Uint8Array(await p.blob.arrayBuffer())), cap: p.caption }) } catch { /* skip a picture that cannot be read */ }
-        }
-        if (!embedded.length) continue
-        const dims = embedded.map((e) => { const sc = Math.min(gw / e.img.width, maxH / e.img.height); return { w: e.img.width * sc, h: e.img.height * sc } })
-        const rowHgt = Math.max(...dims.map((d) => d.h)) + 22
-        need(rowHgt)
-        embedded.forEach((e, k) => {
-          const x = M + k * (gw + 12)
-          page.drawImage(e.img, { x, y: y - dims[k].h, width: dims[k].w, height: dims[k].h })
-          if (e.cap) { const capY = y - dims[k].h - 10; page.drawText(clean(wrap(e.cap, font, 8, gw)[0]), { x, y: capY, size: 8, font, color: grey }) }
-        })
-        y -= rowHgt
-      }
+      await drawPhotos(a.photos, M, R - M, 2)
       y -= 4
     }
     y -= 8
@@ -236,7 +245,7 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
     const note = ws.addRow(['', 'Type each rate in the yellow cells. Totals and this sum work themselves out.'])
     note.getCell(2).font = { italic: true, size: 9, color: { argb: 'FF666666' } }
   }
-  if (q.areas.some((a) => a.photos.length)) {
+  if (q.areas.some((a) => a.photos.length || a.items.some((i) => i.photos?.length))) {
     const n = ws.addRow(['', 'Photos are included in the PDF version.'])
     n.getCell(2).font = { italic: true, size: 9, color: { argb: 'FF666666' } }
   }
