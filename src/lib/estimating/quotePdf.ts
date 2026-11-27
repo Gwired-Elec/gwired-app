@@ -2,7 +2,7 @@
 // contingency and discount are spread across the lines so the lines add up exactly to the net figure, and costs and margins
 // never appear.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
-import { estimateTotals, lineSell, revLetter } from './estimate'
+import { estimateTotals, lineSell, revLetter, upliftOf } from './estimate'
 import type { Estimate, Line, Section } from './estimates'
 import { formatGBP, roundHalfUp } from '../money'
 
@@ -107,7 +107,8 @@ export async function buildQuotePdf(q: QuoteInput): Promise<Uint8Array> {
   y -= 4
 
   // the lines, each scaled so everything adds up to the net value
-  const sells = q.lines.map(lineSell)
+  const uplift = upliftOf(q.estimate)
+  const sells = q.lines.map((l) => lineSell(l, uplift))
   const shown = spreadToNet(sells, t.netPence)
   const shownById = new Map(q.lines.map((l, i) => [l.id, shown[i]]))
   const xQty = W - M - 200, xRate = W - M - 80, xTot = W - M

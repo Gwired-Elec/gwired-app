@@ -12,4 +12,5 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 006_simplify_statuses.sql | job statuses cut to Estimating, Quoted, Won, Closed, Lost (existing jobs moved across) | not yet |
 | 007_won_becomes_live.sql | status "Won" renamed "Live" | not yet |
 | 009_overheads_profit.sql | one combined overheads and profit %, or split materials and labour | not yet |
+| 010_line_sell_override.sql | a line's sell each can be set by hand | not yet |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | not yet |

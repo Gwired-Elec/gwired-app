@@ -50,7 +50,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   import_mappings: ['supplier_id', 'mapping', 'deleted_at'],
   estimates: ['job_id', 'rev', 'name', 'status', 'method', 'labour_rate_id', 'oh_pct', 'profit_pct', 'ohp_mode', 'ohp_pct', 'ohp_materials_pct', 'ohp_labour_pct', 'contingency_pct', 'discount_pct', 'vat_rate', 'reverse_charge', 'notes', 'issued_at', 'deleted_at'],
   estimate_sections: ['estimate_id', 'name', 'sort', 'deleted_at'],
-  estimate_lines: ['estimate_id', 'section_id', 'sort', 'kind', 'description', 'qty', 'unit', 'material_id', 'point_rate_id', 'labour_rate_id', 'unit_cost', 'unit_sell', 'hours_per_unit', 'labour_cost_hr_pence', 'labour_charge_hr_pence', 'markup_pct', 'price_date', 'price_source', 'notes', 'deleted_at'],
+  estimate_lines: ['estimate_id', 'section_id', 'sort', 'kind', 'description', 'qty', 'unit', 'material_id', 'point_rate_id', 'labour_rate_id', 'unit_cost', 'unit_sell', 'hours_per_unit', 'labour_cost_hr_pence', 'labour_charge_hr_pence', 'sell_override', 'markup_pct', 'price_date', 'price_source', 'notes', 'deleted_at'],
 }
 
 export interface OutboxOp {

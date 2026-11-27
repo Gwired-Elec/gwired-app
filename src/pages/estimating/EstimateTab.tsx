@@ -6,7 +6,7 @@ import {
   useAllPrices, useAssemblies, useEstSettings, useLabourRates, useMaterials, usePointRates, usePrelims, useSuppliers,
   type Material,
 } from '../../lib/estimating/data'
-import { estimateTotals, lineCost, lineHours, lineSell, revLetter, type Totals } from '../../lib/estimating/estimate'
+import { estimateTotals, lineCost, lineHours, lineSell, revLetter, sellEach, suggestedSell, upliftOf, type Totals, type Uplift } from '../../lib/estimating/estimate'
 import { perUnitText, useJobEstimates, type Estimate, type Line, type Section } from '../../lib/estimating/estimates'
 import { planJobPrice } from '../../lib/estimating/learn'
 import { bestPrice, costPerUnit, isStale, priceAndPer, sellPerUnit } from '../../lib/estimating/pricing'
@@ -144,6 +144,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
   const draft = est.status === 'draft'
   const editable = canEdit && draft
   const totals = useMemo(() => estimateTotals(lines, est), [lines, est])
+  const uplift = upliftOf(est)
   const jobRef = job.job_number ?? 'unnumbered job'
   const rate = labour?.find((l) => l.id === est.labour_rate_id) ?? labour?.[0]
 
@@ -300,11 +301,15 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     if (l.kind === 'material' && materialId) await learnPrice(materialId, unitCost)
     setWarns([])
   }
+  // "Sell each" shows the suggested price (with overheads and profit); typing a different one overrides it for this line
   async function newSell(l: Line, text: string) {
+    if (!text.trim()) return editLine(l, { sell_override: null })
     const c = priceAndPer(text)
     if (!c) return setWarns(['Check the sell price: use pounds and pence, e.g. 18.00'])
     const v = r4(c.costPence / c.perQty)
-    if (v !== l.unit_sell) await editLine(l, { unit_sell: v })
+    if (v === r4(sellEach(l, uplift))) return
+    if (v === r4(suggestedSell(l, uplift))) return editLine(l, { sell_override: null })
+    await editLine(l, { sell_override: v })
   }
   // existing lines keep the labour rate they were added with; the grade only applies to lines added from now on
   const changeRate = (id: string) => setEst({ labour_rate_id: id || null })
@@ -360,7 +365,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
 
       {ordered.map((s) => {
         const sl = lines.filter((l) => l.section_id === s.id).sort((a, b) => a.sort - b.sort)
-        const sectionTotal = sl.reduce((a, l) => a + lineSell(l), 0)
+        const sectionTotal = sl.reduce((a, l) => a + lineSell(l, uplift), 0)
         return (
           <div className="card" key={s.id}>
             <div className="rowtop">
@@ -369,7 +374,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
             </div>
             {!sl.length && <p className="muted">Nothing in this section yet.</p>}
             {sl.map((l) => (
-              <LineCard key={l.id} line={l} editable={editable} seeCost={seeCost} staleDays={settings.stale_days} onEdit={(p) => editLine(l, p)} onCost={(t) => newCost(l, t)} onSell={(t) => newSell(l, t)} onRemove={() => remove('estimate_lines', l.id)} />
+              <LineCard key={l.id} line={l} uplift={uplift} editable={editable} seeCost={seeCost} staleDays={settings.stale_days} onEdit={(p) => editLine(l, p)} onCost={(t) => newCost(l, t)} onSell={(t) => newSell(l, t)} onRemove={() => remove('estimate_lines', l.id)} />
             ))}
             {editable && (
               <>
@@ -402,8 +407,8 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
 }
 
 // ---------------------------------------------------------------- one line
-function LineCard({ line: l, editable, seeCost, staleDays, onEdit, onCost, onSell, onRemove }: {
-  line: Line; editable: boolean; seeCost: boolean; staleDays: number
+function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCost, onSell, onRemove }: {
+  line: Line; uplift: Uplift; editable: boolean; seeCost: boolean; staleDays: number
   onEdit: (p: Record<string, unknown>) => void; onCost: (t: string) => void; onSell: (t: string) => void; onRemove: () => void
 }) {
   const hours = lineHours(l)
@@ -420,14 +425,15 @@ function LineCard({ line: l, editable, seeCost, staleDays, onEdit, onCost, onSel
         {seeCost && <div className="f"><label>Cost each £</label>
           <input key={'c' + l.unit_cost} type="text" inputMode="decimal" defaultValue={perUnitText(l.unit_cost)} disabled={!editable} onBlur={(e) => onCost(e.target.value)} /></div>}
         <div className="f"><label>Sell each £</label>
-          <input key={'s' + l.unit_sell} type="text" inputMode="decimal" defaultValue={perUnitText(l.unit_sell)} disabled={!editable} onBlur={(e) => onSell(e.target.value)} /></div>
+          <input key={'s' + sellEach(l, uplift)} type="text" inputMode="decimal" defaultValue={perUnitText(r4(sellEach(l, uplift)))} disabled={!editable} onBlur={(e) => onSell(e.target.value)} /></div>
         {(l.kind === 'material' || l.hours_per_unit > 0) && <div className="f"><label>Hours each</label>
           <input key={'h' + l.hours_per_unit} type="text" inputMode="decimal" defaultValue={String(l.hours_per_unit)} disabled={!editable} onBlur={(e) => { const n = num(e.target.value); if (Number.isFinite(n) && n >= 0 && n !== l.hours_per_unit) onEdit({ hours_per_unit: n }) }} /></div>}
       </div>
       <p className="small" style={{ margin: '4px 0 0' }}>
-        <strong>{formatGBP(lineSell(l))}</strong>
+        <strong>{formatGBP(lineSell(l, uplift))}</strong>
         {seeCost && <span className="muted"> · cost {formatGBP(lineCost(l))}</span>}
         {hours > 0 && <span className="muted"> · {hours} h labour</span>}
+        {l.sell_override != null && <> · <span className="tag">price set by hand</span> {editable && <button className="link small" onClick={() => onSell('')}>Use suggested {formatGBP(Math.round(suggestedSell(l, uplift)))}</button>}</>}
         {l.kind === 'material' && <> · <PriceAge date={l.price_date} staleDays={staleDays} />{l.price_source ? <span className="muted"> ({l.price_source})</span> : null}</>}
       </p>
     </div>
@@ -542,7 +548,7 @@ function Terms({ est, editable, onSet }: { est: Estimate; editable: boolean; onS
         <option value="combined">One percentage on everything</option>
         <option value="split">Separate percentages for materials and labour</option>
       </select>
-      <p className="muted small">This is added on top of every line. The client never sees it as a separate line: it is built into their prices.</p>
+      <p className="muted small">Added to every line's "Sell each" as a suggestion. Type a different Sell each on any line to override it for that item. The client never sees overheads and profit separately: they are inside the prices.</p>
       <div className="lgrid">
         {est.ohp_mode === 'split' ? <>{pct('ohp_materials_pct', 'On materials %')}{pct('ohp_labour_pct', 'On labour %')}</> : pct('ohp_pct', 'Overheads + profit %')}
         {pct('contingency_pct', 'Contingency %')}
@@ -563,8 +569,7 @@ function TotalsCard({ t, est, seeCost, methodName }: { t: Totals; est: Estimate;
       <h2>Totals</h2>
       <table className="mini" style={{ width: '100%' }}>
         <tbody>
-          {row('Lines', t.linesPence)}
-          {t.ohpPence > 0 && row(est.ohp_mode === 'split' ? `Overheads and profit (materials ${est.ohp_materials_pct}%, labour ${est.ohp_labour_pct}%)` : `Overheads and profit ${est.ohp_pct}%`, t.ohpPence)}
+          {row(est.ohp_mode === 'split' ? `Lines, including overheads and profit (materials ${est.ohp_materials_pct}%, labour ${est.ohp_labour_pct}%)` : `Lines, including overheads and profit (${est.ohp_pct}%)`, t.linesPence)}
           {est.contingency_pct > 0 && row(`Contingency ${est.contingency_pct}%`, t.contingencyPence)}
           {est.discount_pct > 0 && row(`Discount ${est.discount_pct}%`, t.discountPence, false, true)}
           {row('Net (the quote value)', t.netPence, true)}

@@ -43,6 +43,7 @@ const alive = (r: Row) => !r.deleted_at
 const num = (v: unknown) => Number(v ?? 0)
 const fixLine = (l: Line): Line => ({
   ...l,
+  sell_override: l.sell_override == null ? null : num(l.sell_override),
   qty: num(l.qty), unit_cost: num(l.unit_cost), unit_sell: num(l.unit_sell), hours_per_unit: num(l.hours_per_unit),
   labour_cost_hr_pence: num(l.labour_cost_hr_pence), labour_charge_hr_pence: num(l.labour_charge_hr_pence), sort: num(l.sort),
 })
