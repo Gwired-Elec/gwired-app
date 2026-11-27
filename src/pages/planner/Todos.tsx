@@ -71,7 +71,7 @@ export function TodoPanel({ jobId }: { jobId?: string }) {
           </div>
           {more && (
             <>
-              <div className="lgrid">
+              <div className="lgrid pair">
                 <div className="f"><label htmlFor="td-due">Due date</label><input id="td-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></div>
                 <div className="f"><label htmlFor="td-rep">Repeats</label><select id="td-rep" value={rep} disabled={!due} onChange={(e) => setRep(e.target.value as Recurrence)}>{REPEAT.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
               </div>
@@ -147,7 +147,7 @@ function TodoEditor({ t, labels, edit, hideJob }: { t: Todo; labels: ReturnType<
       <input id={'tt' + t.id} type="text" disabled={!edit} defaultValue={t.title} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== t.title && set({ title: e.target.value.trim() })} />
       <label htmlFor={'tn' + t.id}>Notes</label>
       <textarea id={'tn' + t.id} rows={2} disabled={!edit} defaultValue={t.notes ?? ''} onBlur={(e) => e.target.value.trim() !== (t.notes ?? '') && set({ notes: e.target.value.trim() || null })} />
-      <div className="lgrid">
+      <div className="lgrid pair">
         <div className="f"><label htmlFor={'td' + t.id}>Due date</label><input id={'td' + t.id} type="date" disabled={!edit} value={t.due_date ?? ''} onChange={(e) => set({ due_date: e.target.value || null, ...(e.target.value ? {} : { recurrence: 'none' }) })} /></div>
         <div className="f"><label htmlFor={'tr' + t.id}>Repeats</label><select id={'tr' + t.id} disabled={!edit || !t.due_date} value={t.recurrence} onChange={(e) => set({ recurrence: e.target.value })}>{REPEAT.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
       </div>

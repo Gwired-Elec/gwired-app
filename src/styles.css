@@ -232,3 +232,8 @@ button.linklike:hover { text-decoration: underline; }
 /* a row of choices that always fits across a phone with no sideways scrolling */
 .chips.fit { overflow-x: visible; gap: 6px; }
 .chips.fit .chip { flex: 1 1 0; min-width: 0; justify-content: center; padding: 0 4px; font-size: .88rem; white-space: nowrap; }
+
+/* two fields side by side that never overlap: stack on a narrow screen (iPhone date boxes have a minimum width) */
+.lgrid.pair { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 10px; }
+.lgrid.pair .f { min-width: 0; }
+.lgrid.pair input[type=date], .lgrid.pair select { min-width: 0; max-width: 100%; box-sizing: border-box; }
