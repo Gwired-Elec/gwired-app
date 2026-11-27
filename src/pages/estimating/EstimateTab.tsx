@@ -16,7 +16,7 @@ import { logActivity, newId, remove, save, saveBatch } from '../../lib/sync/stor
 import { METHODS, hourlyCharge, hourlyCost } from '../../lib/estimating/data'
 import { buildQuotePdf } from '../../lib/estimating/quotePdf'
 import { cachedCompany, loadCompany } from '../../lib/company'
-import { useClients } from '../../lib/jobs'
+import { useClients, useReasons, useStatuses, useStatusFlow } from '../../lib/jobs'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const r4 = (n: number) => Number(n.toFixed(4))
@@ -137,6 +137,9 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
   const points = usePointRates()
   const assemblies = useAssemblies()
   const prelims = usePrelims()
+  const statuses = useStatuses()
+  const reasons = useReasons()
+  const [askStatus, statusDialog] = useStatusFlow(statuses, reasons, user)
   const [warns, setWarns] = useState<string[]>([])
   const [adding, setAdding] = useState<{ section: string; mode: string; prefill?: string } | null>(null)
   const seeCost = can('estimates.view_cost')
@@ -328,6 +331,8 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     for (const o of others) if (o.status === 'issued') items.push({ tbl: 'estimates', id: o.id, patch: { status: 'superseded' } })
     await saveBatch(items)
     await logActivity('job', job.id, 'quote', { fields: ['quote_value_pence'], rev: revLetter(est.rev), net: totals.netPence }, user)
+    // issuing the quote moves the job to Quoted (which asks for a chase date)
+    if (job.status === 'estimating' && statuses?.some((x) => x.slug === 'quoted')) askStatus(job, 'quoted')
   }
 
   const methodName = METHODS.find((m) => m[0] === est.method)?.[1]
@@ -406,7 +411,8 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
       {canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
       <QuoteButton job={job} est={est} sections={sections} lines={lines} />
       {canEdit && est.status === 'issued' && <button className="btn" onClick={() => setEst({ status: 'accepted' })}>Mark as accepted</button>}
-      <p className="muted small">Issuing sets the job's quote value to the net figure above. Emailing the quote arrives once Outlook is connected.</p>
+      {statusDialog}
+      <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Emailing the quote arrives once Outlook is connected.</p>
     </>
   )
 }
