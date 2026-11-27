@@ -5,15 +5,15 @@ import type { Job } from '../../lib/jobs'
 import { db, type Row } from '../../lib/sync/db'
 import { newId, remove, save } from '../../lib/sync/store'
 
-interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
-interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
+export interface Area extends Row { walkaround_id: string; name: string; notes: string | null; sort: number }
+export interface Element extends Row { area_id: string; description: string; qty: number; unit: string; notes: string | null; sort: number }
 
 const alive = (r: Row) => !r.deleted_at
 const COMMON = ['Reception', 'Office', 'Kitchen', 'Plant room', 'Comms room', 'Toilets', 'Corridor', 'Roof', 'External']
 const UNITS = ['nr', 'm', 'sum', 'item', 'pt']
 
 // Everything on the walkaround is read from and saved to this device first, so it works with no signal and syncs later.
-function useWalkaround(jobId: string) {
+export function useWalkaround(jobId: string) {
   return useLiveQuery(async () => {
     const walks = (await db().walkarounds.where('job_id').equals(jobId).filter(alive).toArray()).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
     const walk = walks[0]

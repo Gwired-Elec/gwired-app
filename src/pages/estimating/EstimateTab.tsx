@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import MaterialPicker from '../../components/MaterialPicker'
+import { useWalkaround } from '../walkaround/WalkaroundTab'
 import { useAuth } from '../../lib/auth'
 import {
   useAllPrices, useAssemblies, useClauseLibrary, type LibraryClause, useEstSettings, useLabourRates, useMaterials, usePointRates, usePrelims, useSuppliers,
@@ -141,6 +142,7 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
   const points = usePointRates()
   const assemblies = useAssemblies()
   const prelims = usePrelims()
+  const walk = useWalkaround(job.id)
   const statuses = useStatuses()
   const reasons = useReasons()
   const [askStatus, statusDialog] = useStatusFlow(statuses, reasons, user)
@@ -166,6 +168,36 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
 
   function base(sectionId: string, extra: Record<string, unknown>) {
     return { estimate_id: est.id, section_id: sectionId, sort: nextSort(), qty: 1, unit: 'each', unit_cost: 0, unit_sell: 0, hours_per_unit: 0, labour_cost_hr_pence: 0, labour_charge_hr_pence: 0, ...extra }
+  }
+
+  // Items from the site walkaround that are not on this estimate yet. An item counts as already there when a line with the same
+  // description is in a section with the same name as its area, so importing twice never doubles anything up.
+  const walkNew = (walk?.areas ?? []).flatMap((a) => (walk?.elements ?? []).filter((e) => e.area_id === a.id).map((e) => ({ area: a, el: e }))).filter(({ area, el }) => {
+    const sec = ordered.find((s) => s.name.trim().toLowerCase() === area.name.trim().toLowerCase())
+    return !(sec && lines.some((l) => l.section_id === sec.id && l.description.trim().toLowerCase() === el.description.trim().toLowerCase()))
+  })
+  async function importWalkaround() {
+    const items: { tbl: SyncTable; id: string; patch: Record<string, unknown> }[] = []
+    const secIds = new Map<string, string>() // area name (lower case) -> section id
+    for (const s of ordered) secIds.set(s.name.trim().toLowerCase(), s.id)
+    // the empty starter section "Works" is reused for the first area rather than left behind empty
+    const starter = ordered.length === 1 && !lines.some((l) => l.section_id === ordered[0].id) && ordered[0].name === 'Works' ? ordered[0] : null
+    let secSort = (ordered.at(-1)?.sort ?? 0) + 10
+    let sort = nextSort()
+    for (const { area, el } of walkNew) {
+      const key = area.name.trim().toLowerCase()
+      let sid = secIds.get(key)
+      if (!sid) {
+        if (starter && !items.some((i) => i.tbl === 'estimate_sections')) { sid = starter.id; items.push({ tbl: 'estimate_sections', id: starter.id, patch: { name: area.name.trim() } }) }
+        else { sid = newId(); items.push({ tbl: 'estimate_sections', id: sid, patch: { estimate_id: est.id, name: area.name.trim(), sort: secSort } }); secSort += 10 }
+        secIds.set(key, sid)
+      }
+      items.push({ tbl: 'estimate_lines', id: newId(), patch: { estimate_id: est.id, section_id: sid, sort, kind: 'item', description: el.description, qty: el.qty, unit: el.unit || 'nr', unit_cost: 0, unit_sell: 0, hours_per_unit: 0, labour_cost_hr_pence: 0, labour_charge_hr_pence: 0, notes: el.notes ?? null } })
+      sort += 10
+    }
+    await saveBatch(items)
+    await logActivity('job', job.id, 'estimate', { imported_from_walkaround: walkNew.length, rev: revLetter(est.rev) }, user)
+    setWarns([`${walkNew.length} item${walkNew.length === 1 ? '' : 's'} brought in from the site walkaround at £0. Price each line (or add materials) to build the quote.`])
   }
 
   function materialPatch(m: Material, sectionId: string, withLabour: boolean, notes: string[], qty = 1) {
@@ -377,6 +409,13 @@ function Editor({ job, est, sections, lines, clauses, library, others, user, can
         </div>
       )}
 
+      {editable && walkNew.length > 0 && (
+        <div className="card">
+          <h2>Site walkaround</h2>
+          <p className="muted small">{walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround {walkNew.length === 1 ? 'is' : 'are'} not on this estimate yet. Each area becomes a section and each item a line with its quantity and unit, ready for you to price. Anything already on the estimate is skipped.</p>
+          <button className="btn primary" onClick={importWalkaround}>Bring in {walkNew.length} item{walkNew.length === 1 ? '' : 's'} from the walkaround</button>
+        </div>
+      )}
       {ordered.map((s) => {
         const sl = lines.filter((l) => l.section_id === s.id).sort((a, b) => a.sort - b.sort)
         const sectionTotal = sl.reduce((a, l) => a + lineSell(l, uplift), 0)
