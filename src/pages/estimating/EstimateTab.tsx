@@ -264,13 +264,18 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
   async function learnPrice(materialId: string, unitCostPence: number) {
     const scaled = priceAndPer((unitCostPence / 100).toFixed(4))
     if (!scaled) return
-    let supplierId = suppliers!.find((s) => s.name === 'Priced on jobs')?.id
+    // If the material already has a price, the one an estimate would use (preferred supplier, else cheapest) becomes the new cost,
+    // so the database uses what you just typed from now on. A material with no price yet gets one under "Priced on jobs".
+    const existing = prices!.get(materialId) ?? []
+    const inUse = bestPrice(existing, materials!.find((m) => m.id === materialId)?.preferred_supplier_id)
+    let supplierId = inUse?.price.supplier_id ?? suppliers!.find((s) => s.name === 'Priced on jobs')?.id
     if (!supplierId) {
       supplierId = newId()
       await save('suppliers', supplierId, { name: 'Priced on jobs', active: true })
     }
-    const plan = planJobPrice(prices!.get(materialId) ?? [], { materialId, supplierId, costPence: scaled.costPence, perQty: scaled.perQty, jobRef, today: today() })
-    await save('material_prices', plan.priceId ?? newId(), plan.patch)
+    const plan = planJobPrice(existing, { materialId, supplierId, costPence: scaled.costPence, perQty: scaled.perQty, jobRef, today: today() })
+    // the old list price and discount no longer explain the cost, so they are cleared
+    await save('material_prices', plan.priceId ?? newId(), plan.priceId ? { ...plan.patch, list_pence: null, discount_pct: null } : plan.patch)
   }
 
   async function editLine(l: Line, patch: Record<string, unknown>) {
