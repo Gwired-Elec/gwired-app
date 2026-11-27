@@ -19,5 +19,6 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 014_walkaround_photos.sql | walkaround photos: record table and the private photo storage | not yet |
 | 015_photo_items.sql | photos belong to an item rather than an area | not yet |
 | 016_photo_original.sql | keep the original photo when it is marked up | not yet |
-| 017_commercial.sql | variations, applications for payment, invoices (Phase 5) | not yet |
+| 017_commercial.sql | variations, applications for payment, invoices (Phase 5) | run |
+| 018_variation_accepted.sql | part-accepted variations (value the client accepted) | not yet |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | not yet |

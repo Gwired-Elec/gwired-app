@@ -68,7 +68,7 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   walkaround_areas: ['walkaround_id', 'name', 'notes', 'sort', 'deleted_at'],
   walkaround_elements: ['area_id', 'description', 'qty', 'unit', 'notes', 'sort', 'deleted_at'],
   walkaround_photos: ['area_id', 'element_id', 'path', 'original_path', 'caption', 'sort', 'deleted_at'],
-  variations: ['job_id', 'number', 'title', 'description', 'status', 'var_date', 'deleted_at'],
+  variations: ['job_id', 'number', 'title', 'description', 'status', 'var_date', 'approved_pence', 'deleted_at'],
   variation_lines: ['variation_id', 'sort', 'description', 'qty', 'unit', 'rate_pence', 'deleted_at'],
   applications: ['job_id', 'number', 'status', 'app_date', 'period_to', 'retention_pct', 'retention_release_pence', 'cis_on', 'cis_rate', 'cis_labour_pct', 'reverse_charge', 'vat_rate', 'notes', 'paid_pence', 'paid_date', 'deleted_at'],
   application_lines: ['application_id', 'sort', 'line_key', 'group_name', 'description', 'contract_pence', 'to_date_pence', 'deleted_at'],

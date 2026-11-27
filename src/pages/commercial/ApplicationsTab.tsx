@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { MoneyInput, NumInput } from '../../components/MoneyInput'
 import { useAuth } from '../../lib/auth'
-import { contractEstimate, contractItems, freshLines, lineFromPct, useCommercial, variationValue, vref, type Application, type ApplicationLine, type Invoice } from '../../lib/commercial/data'
+import { acceptedValue, contractEstimate, contractItems, freshLines, lineFromPct, useCommercial, variationValue, vref, type Application, type ApplicationLine, type Invoice } from '../../lib/commercial/data'
 import { buildApplicationPdf, buildInvoicePdf } from '../../lib/commercial/pdf'
 import { deliverPdf, docBase } from '../../lib/commercial/share'
 import { useJobEstimates } from '../../lib/estimating/estimates'
@@ -25,8 +25,8 @@ export default function ApplicationsTab({ job }: { job: Job }) {
   }, [est])
   if (!can('estimates.view')) return <div className="card"><p className="muted">You do not have access to prices.</p></div>
   if (!data || !est) return <p className="muted">Loading…</p>
-  const approved = data.variations.filter((v) => v.status === 'approved').map((v) => ({ id: v.id, label: `${vref(v.number)} ${v.title || 'Variation'}`, pence: variationValue(data.vlines.filter((l) => l.variation_id === v.id)) }))
-  const approvedTotal = approved.reduce((a, v) => a + v.pence, 0)
+  const approved = data.variations.filter((v) => v.status === 'approved').map((v) => { const ls = data.vlines.filter((l) => l.variation_id === v.id); return { id: v.id, label: `${vref(v.number)} ${v.title || 'Variation'}`, pence: variationValue(ls), accepted: acceptedValue(v, ls) } })
+  const approvedTotal = approved.reduce((a, v) => a + v.accepted, 0)
   const total = (contract?.net ?? 0) + approvedTotal
   return (
     <>
@@ -55,7 +55,7 @@ type Data = NonNullable<ReturnType<typeof useCommercial>>
 type Contract = { net: number; items: ReturnType<typeof contractItems>['items'] } | null
 
 // ---------------------------------------------------------------- applications for payment
-function Applications({ job, data, contract, approved }: { job: Job; data: Data; contract: Contract; approved: { id: string; label: string; pence: number }[] }) {
+function Applications({ job, data, contract, approved }: { job: Job; data: Data; contract: Contract; approved: { id: string; label: string; pence: number; accepted: number }[] }) {
   const { can } = useAuth()
   const edit = can('estimates.edit')
   const [open, setOpen] = useState<string | null>(data.applications.at(-1)?.id ?? null)
@@ -158,7 +158,7 @@ function AppEditor({ job, app, lines, prevLines, v, before, edit, last, onGone }
       {groups.map((g) => (
         <div key={g}>
           <h3 style={{ margin: '16px 0 4px' }}>{g}</h3>
-          {lines.filter((l) => l.group_name === g).map((l) => <LineRow key={l.id} l={l} prev={prev.get(l.line_key) ?? 0} locked={locked} />)}
+          {lines.filter((l) => l.group_name === g).map((l) => <LineRow key={l.id} l={l} prev={prev.get(l.line_key) ?? 0} locked={locked || l.line_key.startsWith('d:')} companion={l.line_key.startsWith('v:') ? lines.find((x) => x.line_key === 'd:' + l.line_key.slice(2)) : undefined} />)}
         </div>
       ))}
 
@@ -190,14 +190,16 @@ const Sum = ({ a, b, bold }: { a: string; b: string; bold?: boolean }) => (
 )
 
 // one line of the application: the value earned to date, as a % or as a £ amount (changing one updates the other)
-function LineRow({ l, prev, locked }: { l: ApplicationLine; prev: number; locked: boolean }) {
+function LineRow({ l, prev, locked, companion }: { l: ApplicationLine; prev: number; locked: boolean; companion?: ApplicationLine }) {
   const pct = pctFromValue(l.contract_pence, l.to_date_pence)
+  // a part-accepted variation's discount line moves with the variation line
+  const put = (to: number) => saveBatch([{ tbl: 'application_lines', id: l.id, patch: { to_date_pence: to } }, ...(companion ? [{ tbl: 'application_lines' as const, id: companion.id, patch: { to_date_pence: percentOf(companion.contract_pence, l.contract_pence ? (to / l.contract_pence) * 100 : 0) } }] : [])])
   return (
     <div className="lcard">
       <div className="rowtop"><span>{l.description || '(no description)'}</span><span className="muted small">{formatGBP(l.contract_pence)}</span></div>
       <div className="lgrid">
-        <div className="f"><label>% complete</label><NumInput value={pct} max={100} disabled={locked} label="Percent complete" onCommit={(n) => save('application_lines', l.id, { to_date_pence: lineFromPct(l.contract_pence, n) })} /></div>
-        <div className="f"><label>Value to date (£)</label><MoneyInput pence={l.to_date_pence} disabled={locked} label="Value to date" onCommit={(p) => save('application_lines', l.id, { to_date_pence: p })} /></div>
+        <div className="f"><label>% complete</label><NumInput value={pct} max={100} disabled={locked} label="Percent complete" onCommit={(n) => put(lineFromPct(l.contract_pence, n))} /></div>
+        <div className="f"><label>Value to date (£)</label><MoneyInput pence={l.to_date_pence} disabled={locked} label="Value to date" onCommit={(p) => put(p)} /></div>
       </div>
       <span className="muted small">Previously {formatGBP(prev)} · this application {formatGBP(l.to_date_pence - prev)}{l.to_date_pence > l.contract_pence ? ' · over the contract value' : ''}{l.to_date_pence < prev ? ' · less than last time' : ''}</span>
     </div>

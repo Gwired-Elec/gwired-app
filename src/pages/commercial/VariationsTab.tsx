@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { MoneyInput, NumInput } from '../../components/MoneyInput'
 import { useAuth } from '../../lib/auth'
-import { useCommercial, variationValue, vref, type Variation, type VariationLine } from '../../lib/commercial/data'
+import { acceptedValue, useCommercial, variationValue, vref, type Variation, type VariationLine } from '../../lib/commercial/data'
 import { buildVariationPdf } from '../../lib/commercial/pdf'
 import { deliverPdf, docBase } from '../../lib/commercial/share'
 import { useClients, type Job } from '../../lib/jobs'
@@ -18,7 +18,7 @@ export default function VariationsTab({ job }: { job: Job }) {
   if (!can('estimates.view')) return <div className="card"><p className="muted">You do not have access to prices.</p></div>
   if (!data) return <p className="muted">Loading…</p>
   const edit = can('estimates.edit')
-  const approved = data.variations.filter((v) => v.status === 'approved').reduce((a, v) => a + variationValue(data.vlines.filter((l) => l.variation_id === v.id)), 0)
+  const approved = data.variations.filter((v) => v.status === 'approved').reduce((a, v) => a + acceptedValue(v, data.vlines.filter((l) => l.variation_id === v.id)), 0)
 
   async function add() {
     const id = newId()
@@ -56,6 +56,8 @@ function Editor({ job, v, lines, edit, onGone }: { job: Job; v: Variation; lines
   const [desc, setDesc] = useState(v.description ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [ask, setAsk] = useState(false) // the "how much was accepted?" box
+  const [acc, setAcc] = useState(0)
   const locked = !edit || v.status === 'approved'
   const total = variationValue(lines)
 
@@ -77,10 +79,19 @@ function Editor({ job, v, lines, edit, onGone }: { job: Job; v: Variation; lines
       <label htmlFor={'vd' + v.id}>What changed and why</label>
       <textarea id={'vd' + v.id} rows={3} disabled={locked} value={desc} onChange={(e) => setDesc(e.target.value)} onBlur={() => desc !== (v.description ?? '') && save('variations', v.id, { description: desc || null })} />
       <label htmlFor={'vs' + v.id}>Status</label>
-      <select id={'vs' + v.id} disabled={!edit} value={v.status} onChange={(e) => save('variations', v.id, { status: e.target.value })}>
+      <select id={'vs' + v.id} disabled={!edit} value={v.status} onChange={(e) => (e.target.value === 'approved' ? (setAcc(total), setAsk(true)) : save('variations', v.id, { status: e.target.value, approved_pence: null }))}>
         {STATUS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
       </select>
-      {v.status === 'approved' && <p className="muted small">Approved variations are locked. Change the status back to Issued to edit it.</p>}
+      {ask && (
+        <div className="card" style={{ background: 'var(--grey-1, #f4f4f6)' }}>
+          <label htmlFor={'va' + v.id}>How much did the client accept (£, excluding VAT)?</label>
+          <MoneyInput id={'va' + v.id} pence={acc} onCommit={setAcc} />
+          <p className="muted small">Priced at {formatGBP(total)}. If they accepted less, the difference shows as a discount on the application for payment.</p>
+          <button className="btn primary" onClick={async () => { await save('variations', v.id, { status: 'approved', approved_pence: acc >= 0 && acc !== total ? acc : null }); setAsk(false) }}>Approve at {formatGBP(acc)}</button>
+          <button className="btn" onClick={() => setAsk(false)}>Cancel</button>
+        </div>
+      )}
+      {v.status === 'approved' && !ask && <p className="muted small">Approved at {formatGBP(acceptedValue(v, lines))}{acceptedValue(v, lines) < total ? ` of ${formatGBP(total)} priced (discount ${formatGBP(total - acceptedValue(v, lines))})` : ''}. Approved variations are locked: change the status back to Issued to edit it.</p>}
 
       <h3 style={{ marginTop: 16 }}>Items</h3>
       {lines.map((l) => (

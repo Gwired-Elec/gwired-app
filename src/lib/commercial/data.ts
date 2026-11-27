@@ -8,7 +8,7 @@ import { spreadToNet } from '../estimating/quotePdf'
 import { variationLine, type AppTerms } from '../money/applications'
 import { percentOf } from '../money'
 
-export interface Variation extends Row { job_id: string; number: number; title: string; description: string | null; status: 'draft' | 'issued' | 'approved' | 'rejected'; var_date: string }
+export interface Variation extends Row { job_id: string; number: number; title: string; description: string | null; status: 'draft' | 'issued' | 'approved' | 'rejected'; var_date: string; approved_pence: number | null }
 export interface VariationLine extends Row { variation_id: string; sort: number; description: string; qty: number; unit: string; rate_pence: number }
 export interface Application extends Row, AppTerms {
   job_id: string; number: number; status: 'draft' | 'issued' | 'paid'; app_date: string; period_to: string | null
@@ -24,11 +24,13 @@ const alive = (r: Row) => !r.deleted_at
 const n = (v: unknown) => Number(v ?? 0)
 
 export const variationValue = (lines: VariationLine[]) => lines.reduce((a, l) => a + variationLine(l.qty, l.rate_pence), 0)
+// what the client accepted: the full price unless a lower figure was agreed when it was approved
+export const acceptedValue = (v: Variation, lines: VariationLine[]) => v.approved_pence ?? variationValue(lines)
 export const vref = (n: number) => 'VO-' + String(n).padStart(3, '0')
 
 export function useCommercial(jobId: string) {
   return useLiveQuery(async () => {
-    const variations = ((await db().variations.where('job_id').equals(jobId).filter(alive).toArray()) as unknown as Variation[]).map((v) => ({ ...v, number: n(v.number) })).sort((a, b) => a.number - b.number)
+    const variations = ((await db().variations.where('job_id').equals(jobId).filter(alive).toArray()) as unknown as Variation[]).map((v) => ({ ...v, number: n(v.number), approved_pence: v.approved_pence == null ? null : n(v.approved_pence) })).sort((a, b) => a.number - b.number)
     const vids = variations.map((v) => v.id)
     const vlines = vids.length ? ((await db().variation_lines.where('variation_id').anyOf(vids).filter(alive).toArray()) as unknown as VariationLine[]).map((l) => ({ ...l, qty: n(l.qty), rate_pence: n(l.rate_pence), sort: n(l.sort) })).sort((a, b) => a.sort - b.sort) : []
     const applications = ((await db().applications.where('job_id').equals(jobId).filter(alive).toArray()) as unknown as Application[]).map((a) => ({
@@ -65,11 +67,16 @@ export function contractItems(est: Estimate, sections: Section[], lines: Line[])
 }
 
 // what a new application should contain: the quote lines and the approved variations, each starting at what the last application said
-export function freshLines(items: ContractItem[], approved: { id: string; label: string; pence: number }[], prev: ApplicationLine[]): Omit<ApplicationLine, 'id' | 'application_id'>[] {
+export function freshLines(items: ContractItem[], approved: { id: string; label: string; pence: number; accepted: number }[], prev: ApplicationLine[]): Omit<ApplicationLine, 'id' | 'application_id'>[] {
   const was = new Map(prev.map((l) => [l.line_key, l.to_date_pence]))
   const out: Omit<ApplicationLine, 'id' | 'application_id'>[] = []
   items.forEach((it) => out.push({ sort: out.length * 10, line_key: it.key, group_name: it.group, description: it.description, contract_pence: it.pence, to_date_pence: was.get(it.key) ?? 0 }))
-  approved.forEach((v) => out.push({ sort: out.length * 10, line_key: 'v:' + v.id, group_name: 'Variations', description: v.label, contract_pence: v.pence, to_date_pence: was.get('v:' + v.id) ?? 0 }))
+  approved.forEach((v) => {
+    const done = was.get('v:' + v.id) ?? 0
+    out.push({ sort: out.length * 10, line_key: 'v:' + v.id, group_name: 'Variations', description: v.label, contract_pence: v.pence, to_date_pence: done })
+    // part accepted: the shortfall is a discount line that follows the variation's % complete
+    if (v.accepted < v.pence) out.push({ sort: out.length * 10, line_key: 'd:' + v.id, group_name: 'Variations', description: 'Less discount agreed on ' + v.label, contract_pence: v.accepted - v.pence, to_date_pence: percentOf(v.accepted - v.pence, v.pence ? (done / v.pence) * 100 : 0) })
+  })
   return out
 }
 
