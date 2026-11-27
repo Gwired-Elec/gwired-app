@@ -4,10 +4,13 @@ import { useAuth } from '../lib/auth'
 import { fmtDate, typeLabel, useClients, useJobs, useReasons, useStatuses, useStatusFlow, type Job, type Status } from '../lib/jobs'
 import { useOutboxIds } from '../lib/sync/useOutbox'
 
-export default function Jobs() {
+export default function Jobs({ archive = false }: { archive?: boolean }) {
   const { can, profile } = useAuth()
   const nav = useNavigate()
-  const jobs = useJobs()
+  const allJobs = useJobs()
+  // a closed job is archived automatically: it leaves the main list and lives under Archive
+  const jobs = useMemo(() => allJobs?.filter((j) => (j.status === 'closed') === archive), [allJobs, archive])
+  const archivedCount = allJobs?.filter((j) => j.status === 'closed').length ?? 0
   const clients = useClients()
   const statuses = useStatuses()
   const reasons = useReasons()
@@ -20,10 +23,11 @@ export default function Jobs() {
 
   const clientName = useMemo(() => new Map((clients ?? []).map((c) => [c.id, c.name])), [clients])
   const closed = new Set(['closed', 'lost'])
+  const flowStatuses = statuses?.filter((s) => s.slug !== 'closed')
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase()
     return (jobs ?? [])
-      .filter((j) => (filter === 'all' ? true : filter === 'open' ? !closed.has(j.status) : j.status === filter))
+      .filter((j) => (archive || filter === 'all' ? true : filter === 'open' ? !closed.has(j.status) : j.status === filter))
       .filter((j) => !t || [j.title, j.job_number, j.site_address, clientName.get(j.client_id ?? '')].some((v) => (v ?? '').toLowerCase().includes(t)))
       .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -35,8 +39,8 @@ export default function Jobs() {
   return (
     <>
       <div className="rowtop">
-        <h1>Jobs</h1>
-        {editable && <button className="btn primary" style={{ width: 'auto', marginTop: 0 }} onClick={() => nav('/jobs/new')}>+ New job</button>}
+        <h1>{archive ? 'Archived jobs' : 'Jobs'}</h1>
+        {archive ? <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={() => nav('/jobs')}>← Jobs</button> : editable && <button className="btn primary" style={{ width: 'auto', marginTop: 0 }} onClick={() => nav('/jobs/new')}>+ New job</button>}
       </div>
       <div className="toolbar">
         <input type="text" placeholder="Search jobs…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search jobs" />
@@ -45,18 +49,19 @@ export default function Jobs() {
           <button className={view === 'board' ? 'on' : ''} onClick={() => setV('board')}>Board</button>
         </div>
       </div>
-      <div className="chips" role="group" aria-label="Filter by status">
+      {!archive && <div className="chips" role="group" aria-label="Filter by status">
         <button className={`chip ${filter === 'open' ? 'on' : ''}`} onClick={() => setFilter('open')}>Open <span>{(jobs ?? []).filter((j) => !closed.has(j.status)).length}</span></button>
         <button className={`chip ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>All <span>{jobs?.length ?? 0}</span></button>
-        {statuses?.map((s) => (
+        {flowStatuses?.map((s) => (
           <button key={s.id} className={`chip ${filter === s.slug ? 'on' : ''}`} style={{ '--c': s.colour } as React.CSSProperties} onClick={() => setFilter(s.slug)}>
             <i className="dot" />{s.name} <span>{(jobs ?? []).filter((j) => j.status === s.slug).length}</span>
           </button>
         ))}
-      </div>
+        <button className="chip" onClick={() => nav('/jobs/archive')}>Archive <span>{archivedCount}</span></button>
+      </div>}
 
       {!jobs && <p className="muted">Loading…</p>}
-      {jobs && !shown.length && <div className="card"><p className="muted">{jobs.length ? 'No jobs match.' : 'No jobs yet. Add your first one with “+ New job”.'}</p></div>}
+      {jobs && !shown.length && <div className="card"><p className="muted">{jobs.length ? 'No jobs match.' : archive ? 'Nothing archived yet. Jobs appear here when their status is set to Closed.' : 'No jobs yet. Add your first one with “+ New job”.'}</p></div>}
 
       {view === 'list' &&
         shown.map((j) => (
@@ -65,7 +70,7 @@ export default function Jobs() {
 
       {view === 'board' && (
         <div className="board">
-          {statuses?.filter((s) => filter === 'all' || filter === 'open' ? (filter === 'all' || !closed.has(s.slug)) : s.slug === filter).map((s) => {
+          {statuses?.filter((s) => s.slug !== 'closed').filter((s) => filter === 'all' || filter === 'open' ? (filter === 'all' || !closed.has(s.slug)) : s.slug === filter).map((s) => {
             const col = shown.filter((j) => j.status === s.slug)
             return (
               <div className="col" key={s.id}>

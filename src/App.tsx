@@ -59,6 +59,7 @@ function AppRoutes() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="jobs" element={<Jobs />} />
+        <Route path="jobs/archive" element={<Jobs archive />} />
         <Route path="jobs/new" element={<NewJob />} />
         <Route path="jobs/:id" element={<JobDetail />} />
         <Route path="clients" element={<ClientList />} />
