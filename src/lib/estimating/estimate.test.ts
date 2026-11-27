@@ -5,9 +5,9 @@ const L = (p: Partial<LineMaths>): LineMaths => ({ qty: 1, unit_cost: 0, unit_se
 const T = { ohp_mode: 'combined' as const, ohp_pct: 0, ohp_materials_pct: 0, ohp_labour_pct: 0, contingency_pct: 0, discount_pct: 0, vat_rate: 20, reverse_charge: false }
 
 describe('lines', () => {
-  it('rounds a line once, not each part', () => {
+  it('rounds cost once per line, and sell each to the penny', () => {
     expect(lineCost(L({ qty: 10, unit_cost: 23.4 }))).toBe(234)
-    expect(lineSell(L({ qty: 10, unit_sell: 30.42 }))).toBe(304)
+    expect(lineSell(L({ qty: 10, unit_sell: 30.42 }))).toBe(300) // sell each is rounded to the penny first: 30p x 10
   })
   it('adds labour to a material line', () => {
     const l = L({ qty: 4, unit_cost: 350, unit_sell: 420, hours_per_unit: 0.25, labour_cost_hr_pence: 2000, labour_charge_hr_pence: 4500 })
