@@ -43,13 +43,13 @@ export interface Line extends Row, LineMaths {
 const alive = (r: Row) => !r.deleted_at
 // numeric columns can come back from the server as numbers or strings; make sure the maths always sees numbers
 const num = (v: unknown) => Number(v ?? 0)
-const fixLine = (l: Line): Line => ({
+export const fixLine = (l: Line): Line => ({
   ...l,
   sell_override: l.sell_override == null ? null : num(l.sell_override),
   qty: num(l.qty), unit_cost: num(l.unit_cost), unit_sell: num(l.unit_sell), hours_per_unit: num(l.hours_per_unit),
   labour_cost_hr_pence: num(l.labour_cost_hr_pence), labour_charge_hr_pence: num(l.labour_charge_hr_pence), sort: num(l.sort),
 })
-const fixEst = (e: Estimate): Estimate => ({
+export const fixEst = (e: Estimate): Estimate => ({
   ...e, rev: num(e.rev), ohp_pct: num(e.ohp_pct), ohp_materials_pct: num(e.ohp_materials_pct), ohp_labour_pct: num(e.ohp_labour_pct), ohp_mode: e.ohp_mode === 'split' ? 'split' : 'combined', contingency_pct: num(e.contingency_pct), discount_pct: num(e.discount_pct), vat_rate: num(e.vat_rate),
 })
 

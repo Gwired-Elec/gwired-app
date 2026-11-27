@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import SignIn from './pages/SignIn'
 import ResetPassword from './pages/ResetPassword'
 import Home from './pages/Home'
+import Dashboard from './pages/Dashboard'
 import TodosPage from './pages/planner/Todos'
 import DiaryPage from './pages/planner/Diary'
 import More from './pages/More'
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="todos" element={<TodosPage />} />
         <Route path="more" element={<More />} />
         <Route path="more/users" element={<Users />} />
+        <Route path="more/dashboard" element={<Dashboard />} />
         <Route path="more/company" element={<CompanyDetails />} />
         <Route path="more/security" element={<Security />} />
         <Route path="more/sync" element={<SyncLog />} />

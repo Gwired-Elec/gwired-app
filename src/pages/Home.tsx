@@ -26,6 +26,7 @@ export default function Home() {
       {!lockOn && (
         <Link className="card linkcard notice" to="/more/security"><strong>Protect this device</strong><span className="muted"> Set a PIN or Face ID so the app locks if the phone is left in the van.</span></Link>
       )}
+      {profile?.preset === 'owner' && <Link className="card linkcard" to="/more/dashboard"><strong>Dashboard</strong><span className="muted"> Money owed, pipeline and live jobs</span></Link>}
       <div className="card">
         <h2>Today</h2>
         {empty && <p className="muted">Nothing due today. <Link to="/todos">To-dos</Link> · <Link to="/diary">Diary</Link></p>}
