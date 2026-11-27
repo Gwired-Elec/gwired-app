@@ -185,9 +185,14 @@ table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2);
 .clause-pick { padding: 6px 0 10px; border-top: 1px solid var(--line, #2a2a2e); }
 .clause-pick textarea { margin-top: 4px; }
 
-/* walkaround photos */
-.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.photo { display: flex; flex-direction: column; gap: 4px; position: relative; }
-.photo img, .photo .ph { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: var(--grey-1, #1b1b1d); }
-.photo .ph { display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; font-size: 0.8rem; opacity: .7; }
-.photo .tag { position: absolute; top: 6px; left: 6px; }
+/* walkaround: photo and note buttons, thumbnails */
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.iconbtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.thumb { position: relative; width: 72px; height: 72px; padding: 0; border: 0; border-radius: 8px; background: none; overflow: hidden; cursor: pointer; }
+.thumb img, .thumb .ph { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; background: var(--grey-1, #1b1b1d); display: block; }
+.thumb .ph { display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; font-size: 0.6rem; opacity: .7; }
+.thumb .wait { position: absolute; top: 2px; right: 2px; font-size: 0.8rem; }
+.thumb .x { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(0,0,0,.65); color: #fff; font-size: 0.8rem; cursor: pointer; }
+.thumb.open { width: 100%; height: auto; overflow: visible; cursor: default; flex-basis: 100%; }
+.thumb.open img { height: auto; max-height: 360px; object-fit: contain; }

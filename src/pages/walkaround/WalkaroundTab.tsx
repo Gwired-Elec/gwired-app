@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '../../lib/auth'
 import type { Job } from '../../lib/jobs'
@@ -81,29 +81,50 @@ async function attachPhotos(files: File[], jobId: string, areaId: string, elemen
   void uploadPendingPhotos()
 }
 
-function AddPhotosButton({ busy, onFiles, label = '📷 Add photos' }: { busy?: boolean; onFiles: (f: File[]) => void; label?: string }) {
+// the camera button: opens the camera or photo library, several pictures at once
+function PhotoButton({ busy, onFiles }: { busy?: boolean; onFiles: (f: File[]) => void }) {
   return (
-    <label className="btn" style={{ marginTop: 8, opacity: busy ? 0.6 : 1 }}>
-      {busy ? 'Adding…' : label}
+    <label className="iconbtn" style={{ opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Adding…' : '📷 Add photo'}
       <input type="file" accept="image/*" multiple disabled={busy} style={{ display: 'none' }} onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; if (fs.length) onFiles(fs) }} />
     </label>
   )
 }
 
-// the photos of one item, with a button to add more
-function ItemPhotos({ jobId, areaId, el, photos }: { jobId: string; areaId: string; el: Element; photos: Photo[] }) {
+// small previews of pictures chosen for a new item, before it has been added
+function PendingThumbs({ files, onRemove }: { files: File[]; onRemove: (i: number) => void }) {
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
+  if (!files.length) return null
+  return (
+    <div className="thumbs">
+      {urls.map((u, i) => (
+        <div key={u} className="thumb"><img src={u} alt="" /><button type="button" className="x" aria-label="Remove this photo" onClick={() => onRemove(i)}>✕</button></div>
+      ))}
+    </div>
+  )
+}
+
+// an existing item: camera and note buttons side by side, then the note, then the thumbnails
+function ItemExtras({ jobId, areaId, el, photos }: { jobId: string; areaId: string; el: Element; photos: Photo[] }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [noteOpen, setNoteOpen] = useState(false)
   async function add(files: File[]) {
     setBusy(true); setErr('')
     try { await attachPhotos(files, jobId, areaId, el.id, (photos.at(-1)?.sort ?? 0) + 10) } catch (e) { setErr(e instanceof Error ? e.message : 'A photo could not be added.') }
     setBusy(false)
   }
+  const showNote = noteOpen || !!el.notes
   return (
     <>
-      {photos.length > 0 && <div className="photos" style={{ marginTop: 8 }}>{photos.map((p) => <PhotoTile key={p.id} photo={p} />)}</div>}
-      <AddPhotosButton busy={busy} onFiles={add} label={photos.length ? '📷 Add another photo' : '📷 Add photos of this item'} />
+      <div className="actions">
+        <PhotoButton busy={busy} onFiles={add} />
+        <button type="button" className="iconbtn" aria-expanded={showNote} onClick={() => setNoteOpen((o) => !o)}>📝 {el.notes ? 'Note' : 'Add note'}</button>
+      </div>
+      {showNote && <input key={'m' + (el.notes ?? '')} type="text" defaultValue={el.notes ?? ''} autoFocus={noteOpen && !el.notes} placeholder="Note" aria-label="Note" style={{ marginTop: 8 }} onBlur={(e) => e.target.value !== (el.notes ?? '') && save('walkaround_elements', el.id, { notes: e.target.value.trim() || null })} />}
       {err && <p className="err" role="alert">{err}</p>}
+      {photos.length > 0 && <div className="thumbs">{photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}</div>}
     </>
   )
 }
@@ -113,6 +134,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
   const [qty, setQty] = useState('1')
   const [unit, setUnit] = useState('nr')
   const [note, setNote] = useState('')
+  const [noteOpen, setNoteOpen] = useState(false)
   const [pending, setPending] = useState<File[]>([]) // photos chosen for the new item before it is added
   const [adding, setAdding] = useState(false)
   const [addErr, setAddErr] = useState('')
@@ -125,7 +147,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
     try {
       await save('walkaround_elements', id, { area_id: a.id, description: desc.trim(), qty: q, unit: unit.trim() || 'nr', notes: note.trim() || null, sort: (elements.at(-1)?.sort ?? 0) + 10 })
       if (pending.length) await attachPhotos(pending, jobId, a.id, id, 10)
-      setDesc(''); setQty('1'); setNote(''); setPending([])
+      setDesc(''); setQty('1'); setNote(''); setNoteOpen(false); setPending([])
     } catch (er) {
       setAddErr(er instanceof Error ? er.message : 'The item was added but a photo could not be.')
     }
@@ -155,8 +177,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
             <div className="f"><label>Unit</label>
               <input key={'u' + el.unit} type="text" defaultValue={el.unit} list="wunits" onBlur={(e) => e.target.value.trim() && e.target.value !== el.unit && save('walkaround_elements', el.id, { unit: e.target.value.trim() })} /></div>
           </div>
-          <input key={'m' + (el.notes ?? '')} type="text" defaultValue={el.notes ?? ''} placeholder="Note (optional)" aria-label="Note" style={{ marginTop: 8 }} onBlur={(e) => e.target.value !== (el.notes ?? '') && save('walkaround_elements', el.id, { notes: e.target.value.trim() || null })} />
-          <ItemPhotos jobId={jobId} areaId={a.id} el={el} photos={photos.filter((p) => p.element_id === el.id)} />
+          <ItemExtras jobId={jobId} areaId={a.id} el={el} photos={photos.filter((p) => p.element_id === el.id)} />
         </div>
       ))}
       <form onSubmit={addEl} className="lcard">
@@ -166,16 +187,19 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
           <div className="f"><label htmlFor={'nq' + a.id}>Qty</label><input id={'nq' + a.id} type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
-        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" aria-label="Note for this item" style={{ marginTop: 8 }} />
-        <AddPhotosButton onFiles={(fs) => setPending((p) => [...p, ...fs])} label={pending.length ? `📷 ${pending.length} photo${pending.length === 1 ? '' : 's'} ready (add more)` : '📷 Add photos of this item'} />
-        {pending.length > 0 && <button type="button" className="link small" onClick={() => setPending([])}>Clear the photos</button>}
+        <div className="actions">
+          <PhotoButton onFiles={(fs) => setPending((p) => [...p, ...fs])} />
+          <button type="button" className="iconbtn" aria-expanded={noteOpen || !!note} onClick={() => setNoteOpen((o) => !o)}>📝 {note ? 'Note' : 'Add note'}</button>
+        </div>
+        {(noteOpen || !!note) && <input type="text" value={note} autoFocus={noteOpen && !note} onChange={(e) => setNote(e.target.value)} placeholder="Note" aria-label="Note for this item" style={{ marginTop: 8 }} />}
+        <PendingThumbs files={pending} onRemove={(i) => setPending((p) => p.filter((_, k) => k !== i))} />
         {addErr && <p className="err" role="alert">{addErr}</p>}
         <button className="btn" disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
       </form>
       {loose.length > 0 && (
         <>
           <h3 style={{ margin: '14px 0 4px' }}>Other photos of this area</h3>
-          <div className="photos">{loose.map((p) => <PhotoTile key={p.id} photo={p} />)}</div>
+          <div className="thumbs">{loose.map((p) => <PhotoThumb key={p.id} photo={p} />)}</div>
         </>
       )}
       <datalist id="wunits">{UNITS.map((u) => <option key={u} value={u} />)}</datalist>
@@ -183,8 +207,10 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
   )
 }
 
-function PhotoTile({ photo: p }: { photo: Photo }) {
+// a small thumbnail; tap it to see it bigger, add a caption, or remove it
+function PhotoThumb({ photo: p }: { photo: Photo }) {
   const url = usePhotoUrl(p)
+  const [open, setOpen] = useState(false)
   const [waiting, setWaiting] = useState(false)
   useEffect(() => {
     let live = true
@@ -193,12 +219,24 @@ function PhotoTile({ photo: p }: { photo: Photo }) {
     const t = setInterval(check, 8000)
     return () => { live = false; clearInterval(t) }
   }, [p.id])
+  const pic = url ? <img src={url} alt={p.caption || 'Site photo'} /> : <div className="ph">{url === null ? 'Not on this device yet' : '…'}</div>
+  if (!open) {
+    return (
+      <button type="button" className="thumb" aria-label="Open photo" onClick={() => setOpen(true)}>
+        {pic}
+        {waiting && <span className="wait" title="Waiting to upload">⏳</span>}
+      </button>
+    )
+  }
   return (
-    <div className="photo">
-      {url ? <img src={url} alt={p.caption || 'Site photo'} /> : <div className="ph">{url === null ? 'Not on this device yet. Connect to load it.' : 'Loading…'}</div>}
-      {waiting && <span className="tag">waiting to upload</span>}
+    <div className="thumb open">
+      {pic}
+      {waiting && <p className="muted small">Waiting to upload: it goes up when there is signal.</p>}
       <input key={p.caption ?? ''} type="text" defaultValue={p.caption ?? ''} placeholder="Caption (optional)" aria-label="Photo caption" onBlur={(e) => e.target.value !== (p.caption ?? '') && save('walkaround_photos', p.id, { caption: e.target.value.trim() || null })} />
-      <button className="link small" onClick={() => confirm('Remove this photo?') && remove('walkaround_photos', p.id)}>Remove photo</button>
+      <div className="actions">
+        <button type="button" className="iconbtn" onClick={() => setOpen(false)}>Close</button>
+        <button type="button" className="iconbtn" onClick={() => confirm('Remove this photo?') && remove('walkaround_photos', p.id)}>Remove photo</button>
+      </div>
     </div>
   )
 }
