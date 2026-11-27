@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { JOB_TYPES, useClients } from '../lib/jobs'
 import { logActivity, newId, save } from '../lib/sync/store'
-import { addDaysIso, todayIso } from '../lib/planner/data'
 
 const NEW = '__new'
 
@@ -16,7 +15,6 @@ export default function NewJob() {
   const [nc, setNc] = useState({ name: '', client_type: 'domestic', email: '', phone: '', address: '' }) // the new client, if adding one here
   const [site, setSite] = useState('')
   const [type, setType] = useState('domestic')
-  const [mainContractor, setMainContractor] = useState('')
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
@@ -61,16 +59,11 @@ export default function NewJob() {
       title: title.trim(),
       client_id: cid,
       site_address: site.trim() || (adding ? nc.address.trim() : '') || null,
-      main_contractor: mainContractor.trim() || null,
       job_type: type,
       source: source.trim() || null,
       notes: notes.trim() || null,
       status: 'estimating',
     })
-    // a job under a main contractor needs RAMS: leave a to-do so it is not forgotten
-    if (mainContractor.trim() && can('todos')) {
-      await save('todos', newId(), { title: `Create RAMS (main contractor: ${mainContractor.trim()})`, job_id: id, assigned_to: null, due_date: addDaysIso(todayIso(), 2), recurrence: 'none', show_in_diary: true, created_by: profile!.id })
-    }
     await logActivity('job', id, 'created', { title: title.trim() }, { id: profile!.id, name: profile!.full_name || profile!.email })
     nav(`/jobs/${id}`, { replace: true })
   }
@@ -112,8 +105,6 @@ export default function NewJob() {
 
         <label htmlFor="s">Site address</label>
         <input id="s" type="text" value={site} onChange={(e) => setSite(e.target.value)} placeholder={adding && nc.address ? `Same as client: ${nc.address}` : undefined} />
-        <label htmlFor="mc">Main contractor</label>
-        <input id="mc" type="text" value={mainContractor} onChange={(e) => setMainContractor(e.target.value)} placeholder="Only if you are working for one. A reminder to create RAMS is added." />
         <label htmlFor="jt">Job type</label>
         <select id="jt" value={type} onChange={(e) => setType(e.target.value)}>
           {JOB_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
