@@ -5,6 +5,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFPage } from 'pdf-lib'
 import { clean, wrap } from '../estimating/quotePdf'
 import { revLetter } from '../estimating/estimate'
 import type ExcelJS from 'exceljs'
+import type { QuoteClause } from '../estimating/quotePdf'
 
 export interface SowCompany { name: string; address?: string | null; vat_number?: string | null; company_number?: string | null; email?: string | null; phone?: string | null }
 export interface SowPhoto { blob: Blob; caption: string | null; width?: number; height?: number }
@@ -15,6 +16,7 @@ export interface SowInput {
   job: { job_number: string | null; title: string; site_address: string | null }
   client: { name: string; address?: string | null } | null
   areas: SowArea[]
+  clauses?: QuoteClause[] // assumptions and exclusions printed at the end
   showRates: boolean // blank Rate and Total columns
   date: Date
   logoPng?: Uint8Array | null
@@ -170,6 +172,25 @@ export async function buildSowPdf(q: SowInput): Promise<Uint8Array> {
     y -= 8
   }
 
+  // assumptions and exclusions
+  const cl = (q.clauses ?? []).slice().sort((a, b) => a.sort - b.sort)
+  const block = (title: string, items: string[]) => {
+    if (!items.length) return
+    need(40)
+    text(title, M, 8.5, bold, grey)
+    y -= 14
+    items.forEach((b, i) => {
+      const ls = wrap(b, font, 8.8, R - xDesc)
+      need(ls.length * 11.5 + 4)
+      text(String(i + 1) + '.', M + 4, 8.8, font, grey)
+      ls.forEach((l) => { text(l, xDesc, 8.8); y -= 11.5 })
+      y -= 3
+    })
+    y -= 8
+  }
+  block('ASSUMPTIONS', cl.filter((c) => c.kind === 'assumption').map((c) => c.body))
+  block('EXCLUSIONS', cl.filter((c) => c.kind === 'exclusion').map((c) => c.body))
+
   const pages = pdf.getPages()
   pages.forEach((p, i) => p.drawText(clean(`${co.name}  -  Scope of works ${q.job.job_number ?? ''}  -  page ${i + 1} of ${pages.length}`), { x: M, y: 22, size: 8, font, color: grey }))
   return pdf.save()
@@ -253,6 +274,23 @@ export async function buildSowXlsx(q: SowInput): Promise<ArrayBuffer> {
       if (it.photos?.length) await putPhotos(it.photos)
     }
     if (a.photos.length) await putPhotos(a.photos)
+    ws.addRow([])
+  }
+
+  const cl = (q.clauses ?? []).slice().sort((a, b) => a.sort - b.sort)
+  for (const [title, kind] of [['ASSUMPTIONS', 'assumption'], ['EXCLUSIONS', 'exclusion']] as const) {
+    const list = cl.filter((c) => c.kind === kind)
+    if (!list.length) continue
+    const h = ws.addRow([title])
+    ws.mergeCells(h.number, 1, h.number, last)
+    h.getCell(1).font = { bold: true, color: { argb: 'FF666666' } }
+    list.forEach((c, i) => {
+      const r = ws.addRow([i + 1, c.body])
+      ws.mergeCells(r.number, 2, r.number, last)
+      r.getCell(2).alignment = { wrapText: true, vertical: 'top' }
+      r.getCell(1).alignment = { vertical: 'top', horizontal: 'left' }
+      r.height = Math.max(15, Math.ceil(c.body.length / 100) * 15)
+    })
     ws.addRow([])
   }
 
