@@ -433,12 +433,13 @@ function LineCard({ line: l, uplift, editable, seeCost, staleDays, onEdit, onCos
         {(l.kind === 'material' || l.hours_per_unit > 0) && <div className="f"><label>Hours each</label>
           <input key={'h' + l.hours_per_unit} type="text" inputMode="decimal" defaultValue={String(l.hours_per_unit)} disabled={!editable} onBlur={(e) => { const n = num(e.target.value); if (Number.isFinite(n) && n >= 0 && n !== l.hours_per_unit) onEdit({ hours_per_unit: n }) }} /></div>}
       </div>
-      <p className="small" style={{ margin: '4px 0 0' }}>
-        <span>{formatGBP(lineSell(l, uplift))}</span>
-        {seeCost && <span className="muted"> · cost {formatGBP(lineCost(l))}</span>}
-        {hours > 0 && <span className="muted"> · {hours} h labour</span>}
-        {l.sell_override != null && <> · <span className="tag">price set by hand</span> {editable && <button className="link small" onClick={() => onSell('')}>Use suggested {formatGBP(Math.round(suggestedSell(l, uplift)))}</button>}</>}
-        {l.kind === 'material' && <> · <span className={isStale(l.price_date, staleDays) ? 'age stale' : 'muted'}>{isStale(l.price_date, staleDays) ? '⚠ ' : ''}Last used {l.price_date ? l.price_date.split('-').reverse().join('/') : '(no date)'}</span></>}
+      <p className="small muted" style={{ margin: '4px 0 0' }}>
+        {[
+          seeCost && <span key="c">cost {formatGBP(lineCost(l))}</span>,
+          hours > 0 && <span key="h">{hours} h labour</span>,
+          l.sell_override != null && <span key="o"><span className="tag">price set by hand</span> {editable && <button className="link small" onClick={() => onSell('')}>Use suggested {formatGBP(Math.round(suggestedSell(l, uplift)))}</button>}</span>,
+          l.kind === 'material' && <span key="d" className={isStale(l.price_date, staleDays) ? 'age stale' : ''}>{isStale(l.price_date, staleDays) ? '⚠ ' : ''}Last used {l.price_date ? l.price_date.split('-').reverse().join('/') : '(no date)'}</span>,
+        ].filter(Boolean).flatMap((x, i) => (i ? [' · ', x] : [x]))}
       </p>
     </div>
   )
