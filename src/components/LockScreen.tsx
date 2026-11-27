@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../lib/auth'
 import { useLock } from '../lib/lock'
+import { useSafeSignOut } from '../lib/sync/signout'
 
 export default function LockScreen() {
-  const { profile, signOut } = useAuth()
+  const { profile } = useAuth()
+  const safeSignOut = useSafeSignOut()
   const { config, unlockWithPin, unlockWithBiometric } = useLock()
   const [pin, setPin] = useState('')
   const [msg, setMsg] = useState('')
@@ -46,7 +48,7 @@ export default function LockScreen() {
           </form>
         )}
         {msg && <p className="err" role="alert">{msg}</p>}
-        <div className="links"><button className="link" onClick={signOut}>Sign out of this device</button></div>
+        <div className="links"><button className="link" onClick={() => safeSignOut()}>Sign out of this device</button></div>
       </div>
     </div>
   )

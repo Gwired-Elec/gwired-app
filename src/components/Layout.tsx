@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { useOnline } from '../lib/online'
+import SyncIndicator from './SyncIndicator'
 
 const TABS = [
   { to: '/', label: 'Home', icon: '⌂', end: true },
@@ -11,7 +11,6 @@ const TABS = [
 
 // Phone: bottom tab bar. iPad / desktop (>= 768px): left sidebar. Same links, CSS decides which shows.
 export default function Layout() {
-  const online = useOnline()
   return (
     <div className="shell">
       <aside className="side" aria-label="Main">
@@ -24,12 +23,12 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+        <div className="sidesync"><SyncIndicator /></div>
       </aside>
       <div className="main">
         <header className="top">
           <span className="topbrand">G | WIRED</span>
-          {/* Real sync states (syncing / waiting / error) arrive with the sync engine in Phase 1b. */}
-          <span className={'pill ' + (online ? 'good' : 'warn')}>{online ? '✓ Online' : '⚠ Offline'}</span>
+          <SyncIndicator />
         </header>
         <main className="content"><Outlet /></main>
       </div>

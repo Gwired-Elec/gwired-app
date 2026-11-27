@@ -8,6 +8,7 @@
 // Too many wrong PINs slow down, then sign the user out of this device (back to password / passkey sign-in).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from './auth'
+import { wipeLocalData } from './sync/db'
 
 const CFG = 'gw-lock-v1'
 const FAILS = 'gw-lock-fails-v1'
@@ -217,7 +218,9 @@ export function LockProvider({ children }: { children: ReactNode }) {
           lastActive.current = Date.now()
           setLocked(false)
         } else if (r.result === 'wipe') {
+          // too many wrong PINs: this is a forced sign-out, so the local copy goes too
           clearLockData()
+          await wipeLocalData()
           await signOut()
         }
         return r

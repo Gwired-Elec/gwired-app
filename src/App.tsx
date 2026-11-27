@@ -11,6 +11,12 @@ import Users from './pages/Users'
 import Security from './pages/Security'
 import LockScreen from './components/LockScreen'
 import { useLock } from './lib/lock'
+import DbGate from './components/DbGate'
+import Jobs from './pages/Jobs'
+import NewJob from './pages/NewJob'
+import JobDetail from './pages/JobDetail'
+import { ClientList, ClientDetail } from './pages/Clients'
+import SyncLog from './pages/SyncLog'
 
 export default function App() {
   const { loading, session, profile, recovering } = useAuth()
@@ -33,18 +39,30 @@ export default function App() {
     return <NoAccess hasProfile={!!profile} />
   }
 
-  if (locked) return <LockScreen />
+  // the local database opens (and syncing starts) even while the app is locked: the lock only hides the screen
+  return (
+    <DbGate>
+      {locked ? <LockScreen /> : <AppRoutes />}
+    </DbGate>
+  )
+}
 
+function AppRoutes() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
-        <Route path="jobs/*" element={<ComingSoon title="Jobs" phase="Phase 1b" />} />
+        <Route path="jobs" element={<Jobs />} />
+        <Route path="jobs/new" element={<NewJob />} />
+        <Route path="jobs/:id" element={<JobDetail />} />
+        <Route path="clients" element={<ClientList />} />
+        <Route path="clients/:id" element={<ClientDetail />} />
         <Route path="diary" element={<ComingSoon title="Diary" phase="Phase 8" />} />
         <Route path="todos" element={<ComingSoon title="To-dos" phase="Phase 8" />} />
         <Route path="more" element={<More />} />
         <Route path="more/users" element={<Users />} />
         <Route path="more/security" element={<Security />} />
+        <Route path="more/sync" element={<SyncLog />} />
         <Route path="login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
