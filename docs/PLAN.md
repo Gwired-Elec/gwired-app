@@ -190,3 +190,16 @@ SQL goes in `supabase/` as numbered scripts, written phase by phase.
 - [~] Phase 1a: done = project scaffold, PWA shell (manifest, service worker), phone tab bar / iPad sidebar, branded login (password, magic link, forgot/reset, keep-signed-in, generic errors), permission flags, `001_foundation.sql`, Firebase hosting config. Also done: Users screen + manage-users function, PIN + device Face ID app lock with auto-lock and PIN lockout, Supabase passkey sign-in, sign out of all devices, offline-safe profile. **Still to do in 1a:** TOTP 2FA for owner, iOS icons/splash (needs logo), Firebase project + first deploy, passkey RP settings for the live domain
 - [~] Phase 1b: BUILT, not yet run against Supabase: script 004, Dexie + sync engine (outbox, pull, per-field LWW, protected-field conflicts, sync log), clients + contacts, jobs (list, board, detail, status flow with lost reason + chase date, activity log), money module + tests. Job pipeline settings screen (statuses, lost reasons) added. TODO before sign-off: airplane-mode Playwright test, iPhone test
 - [ ] Phases 2-10
+
+## 10. Phase 2 notes (27 Nov 2026)
+
+**Richard's rules for the materials database (added mid-build):**
+1. The database **fills itself from priced jobs**: when an item is priced on an estimate (own cost typed, or an item not yet in the database), the cost is written back as a supplier price (supplier "Priced on jobs" unless another is chosen), dated today and tagged "Priced on job GW-xxxx". Logic built and tested in `src/lib/estimating/learn.ts`; **the estimate builder (2b) must call it.**
+2. **Every cost shows its age** ("checked 4 months ago", green / amber / red): `components/PriceAge.tsx`.
+3. **Adding an item whose price is over 6 months old warns** (default 180 days, editable in Estimating defaults). Done in assemblies and the material picker; **2b must do the same when adding lines to an estimate.**
+
+**2a built:** `005_estimating_data.sql`; materials (list, detail, several supplier prices, preferred / cheapest, age); price-file import (CSV / Excel, column mapping, saved per supplier, preview before saving, sub-penny prices kept exact via "price per N"); suppliers; labour rates; point rates; prelims; estimating defaults (incl. default pricing method per job type); assemblies with worked-out cost, sell and labour hours. Unit tests for pricing, importer, assemblies and learning (46 tests in total).
+
+**2b to build:** estimate builder (sections, lines using units / point / day methods in one estimate, OH / profit / contingency / discount / VAT incl. reverse charge, cost vs sell and margin), revisions A, B, C with comparison, quote PDF (on device, pdf-lib), quote send (needs Outlook set up, so queued until then).
+
+**Known limit:** cost is hidden from people without `estimates.view_cost` on screen only. At database level anyone with `estimates.view` receives the cost columns. Fine for now (Operatives have no `estimates.view`); revisit if an Office role should see sell prices but never cost.

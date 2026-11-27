@@ -18,6 +18,11 @@ import JobDetail from './pages/JobDetail'
 import { ClientList, ClientDetail } from './pages/Clients'
 import SyncLog from './pages/SyncLog'
 import PipelineSettings from './pages/PipelineSettings'
+import EstHub from './pages/estimating/Hub'
+import { MaterialList, MaterialDetail } from './pages/estimating/Materials'
+import ImportPrices from './pages/estimating/Import'
+import { Suppliers, LabourRates, PointRates, Prelims, Defaults } from './pages/estimating/Rates'
+import { AssemblyList, AssemblyDetail } from './pages/estimating/Assemblies'
 
 export default function App() {
   const { loading, session, profile, recovering } = useAuth()
@@ -65,6 +70,17 @@ function AppRoutes() {
         <Route path="more/security" element={<Security />} />
         <Route path="more/sync" element={<SyncLog />} />
         <Route path="more/pipeline" element={<PipelineSettings />} />
+        <Route path="more/estimating" element={<EstHub />} />
+        <Route path="more/estimating/materials" element={<MaterialList />} />
+        <Route path="more/estimating/materials/:id" element={<MaterialDetail />} />
+        <Route path="more/estimating/import" element={<ImportPrices />} />
+        <Route path="more/estimating/suppliers" element={<Suppliers />} />
+        <Route path="more/estimating/labour" element={<LabourRates />} />
+        <Route path="more/estimating/points" element={<PointRates />} />
+        <Route path="more/estimating/prelims" element={<Prelims />} />
+        <Route path="more/estimating/defaults" element={<Defaults />} />
+        <Route path="more/estimating/assemblies" element={<AssemblyList />} />
+        <Route path="more/estimating/assemblies/:id" element={<AssemblyDetail />} />
         <Route path="login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

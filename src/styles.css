@@ -118,3 +118,24 @@ input:disabled, select:disabled, textarea:disabled { background: var(--grey-1); 
 .setrow input[type=text] { flex: 1 1 180px; width: auto; }
 .setrow input[type=color] { width: 44px; height: 44px; padding: 2px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); }
 label.check.mini { font-size: 0.85rem; min-height: 44px; margin: 0; }
+
+/* estimating */
+.fieldgrid { display: grid; grid-template-columns: 1fr; gap: 0 16px; }
+@media (min-width: 600px) { .fieldgrid { grid-template-columns: 1fr 1fr; } .f.wide { grid-column: 1 / -1; } }
+@media (min-width: 1000px) { .fieldgrid { grid-template-columns: 1fr 1fr 1fr; } }
+.f { min-width: 0; }
+.f.check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 400; margin: 14px 0 0; }
+.f.check input { width: 22px; height: 22px; }
+.f input[type=text], .f input[type=date], .f select { width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); }
+.f input[aria-invalid=true] { border-color: var(--red); }
+input[type=date] { min-height: 48px; padding: 0 12px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); width: 100%; }
+.age { font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.age.fresh { color: var(--good); } .age.ageing { color: var(--warn); } .age.stale, .age.unknown { color: var(--red); }
+.tag { display: inline-block; font-size: 0.75rem; font-weight: 700; background: var(--grey-1); border: 1px solid var(--grey-2); border-radius: 999px; padding: 1px 8px; }
+.pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; min-height: 52px; padding: 8px 12px; margin-top: 6px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); cursor: pointer; }
+.warnbox { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
+.warnbox p { margin: 4px 0; }
+.scroll { overflow-x: auto; margin: 10px 0; }
+table.mini { border-collapse: collapse; font-size: 0.85rem; }
+table.mini td { border: 1px solid var(--grey-2); padding: 4px 8px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+table.mini tr.hdr td { background: var(--grey-1); font-weight: 700; }

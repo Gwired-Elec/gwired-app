@@ -32,6 +32,9 @@ export default function More() {
       {(can('clients.view') || can('jobs.view')) && (
         <Link className="card linkcard" to="/clients"><strong>Clients</strong><span className="muted"> Clients and their contacts</span></Link>
       )}
+      {can('estimates.view') && (
+        <Link className="card linkcard" to="/more/estimating"><strong>Estimating data</strong><span className="muted"> Materials, supplier prices, rates, assemblies</span></Link>
+      )}
       <Link className="card linkcard" to="/more/sync"><strong>Sync and storage</strong><span className="muted"> What's waiting to send, conflicts, space used</span></Link>
       <Link className="card linkcard" to="/more/security"><strong>Security</strong><span className="muted"> PIN, Face ID, auto-lock and passkeys</span></Link>
       {can('settings') && (

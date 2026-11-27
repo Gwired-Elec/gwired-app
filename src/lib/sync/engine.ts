@@ -28,7 +28,7 @@ const set = (p: Partial<SyncStatus>) => {
 }
 export const useSyncStatus = () => useSyncExternalStore((cb) => (listeners.add(cb), () => listeners.delete(cb)), () => status)
 
-const BATCH = 50
+const BATCH = 200
 const PAGE = 1000
 const isNetwork = (m: string) => !navigator.onLine || /fetch|network|load failed|timeout/i.test(m)
 

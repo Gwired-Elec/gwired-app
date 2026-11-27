@@ -2,7 +2,8 @@
 // from Supabase in the background. One database per signed-in user, so a shared device never mixes people's data.
 import Dexie, { type Table } from 'dexie'
 
-export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log'] as const
+export const SYNC_TABLES = ['job_statuses', 'lost_reasons', 'clients', 'contacts', 'jobs', 'job_financials', 'activity_log',
+  'suppliers', 'materials', 'material_prices', 'labour_rates', 'point_rates', 'assemblies', 'assembly_items', 'prelim_items', 'estimating_settings', 'import_mappings'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 // keep in step with sync_tables in supabase/004_sync_clients_jobs.sql
@@ -14,6 +15,16 @@ export const PROTECTED: Record<SyncTable, string[]> = {
   jobs: ['status', 'lost_reason'],
   job_financials: ['quote_value_pence'],
   activity_log: [],
+  suppliers: [],
+  materials: [],
+  material_prices: ['cost_pence'],
+  labour_rates: ['cost_per_hour_pence', 'charge_per_hour_pence', 'day_rate_pence', 'day_cost_pence'],
+  point_rates: ['sell_pence', 'cost_pence'],
+  assemblies: [],
+  assembly_items: [],
+  prelim_items: ['amount_pence'],
+  estimating_settings: [],
+  import_mappings: [],
 }
 // columns the server accepts per table (anything else, such as server-set fields, is never sent back)
 export const WRITABLE: Record<SyncTable, string[]> = {
@@ -24,6 +35,16 @@ export const WRITABLE: Record<SyncTable, string[]> = {
   jobs: ['title', 'client_id', 'contact_id', 'site_address', 'main_contractor', 'job_type', 'source', 'status', 'lost_reason', 'lost_note', 'chase_date', 'notes', 'created_at', 'deleted_at'],
   job_financials: ['quote_value_pence', 'quote_date', 'valid_until', 'probability', 'deleted_at'],
   activity_log: ['entity', 'entity_id', 'action', 'detail', 'user_id', 'user_name', 'created_at'],
+  suppliers: ['name', 'notes', 'active', 'deleted_at'],
+  materials: ['code', 'description', 'category', 'unit', 'labour_hours', 'markup_pct', 'preferred_supplier_id', 'active', 'notes', 'deleted_at'],
+  material_prices: ['material_id', 'supplier_id', 'supplier_code', 'list_pence', 'discount_pct', 'cost_pence', 'per_qty', 'price_date', 'source', 'deleted_at'],
+  labour_rates: ['name', 'cost_per_hour_pence', 'charge_per_hour_pence', 'day_rate_pence', 'day_cost_pence', 'overtime_multiplier', 'sort', 'active', 'deleted_at'],
+  point_rates: ['name', 'category', 'unit', 'sell_pence', 'cost_pence', 'notes', 'active', 'deleted_at'],
+  assemblies: ['code', 'name', 'category', 'description', 'extra_labour_hours', 'active', 'deleted_at'],
+  assembly_items: ['assembly_id', 'material_id', 'qty', 'sort', 'deleted_at'],
+  prelim_items: ['name', 'kind', 'amount_pence', 'percent', 'active', 'deleted_at'],
+  estimating_settings: ['default_markup_pct', 'oh_pct', 'profit_pct', 'contingency_pct', 'stale_days', 'vat_rate', 'method_defaults'],
+  import_mappings: ['supplier_id', 'mapping', 'deleted_at'],
 }
 
 export interface OutboxOp {
@@ -71,6 +92,16 @@ export class GwDb extends Dexie {
   jobs!: Table<Row, string>
   job_financials!: Table<Row, string>
   activity_log!: Table<Row, string>
+  suppliers!: Table<Row, string>
+  materials!: Table<Row, string>
+  material_prices!: Table<Row, string>
+  labour_rates!: Table<Row, string>
+  point_rates!: Table<Row, string>
+  assemblies!: Table<Row, string>
+  assembly_items!: Table<Row, string>
+  prelim_items!: Table<Row, string>
+  estimating_settings!: Table<Row, string>
+  import_mappings!: Table<Row, string>
 
   constructor(userId: string) {
     super('gwired-' + userId)
@@ -85,6 +116,19 @@ export class GwDb extends Dexie {
       jobs: 'id, status, client_id',
       job_financials: 'id',
       activity_log: 'id, entity_id, created_at',
+    })
+    // version 2 (Phase 2): estimating data
+    this.version(2).stores({
+      suppliers: 'id',
+      materials: 'id, code, category',
+      material_prices: 'id, material_id, supplier_id',
+      labour_rates: 'id, sort',
+      point_rates: 'id, category',
+      assemblies: 'id, code',
+      assembly_items: 'id, assembly_id',
+      prelim_items: 'id',
+      estimating_settings: 'id',
+      import_mappings: 'id, supplier_id',
     })
   }
 }
