@@ -194,7 +194,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
         {(noteOpen || !!note) && <input type="text" value={note} autoFocus={noteOpen && !note} onChange={(e) => setNote(e.target.value)} placeholder="Note" aria-label="Note for this item" style={{ marginTop: 8 }} />}
         <PendingThumbs files={pending} onRemove={(i) => setPending((p) => p.filter((_, k) => k !== i))} />
         {addErr && <p className="err" role="alert">{addErr}</p>}
-        <button className="btn" disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
+        <button className="btn" style={{ marginTop: 14 }} disabled={!desc.trim() || adding}>{adding ? 'Adding…' : '+ Add item'}</button>
       </form>
       {loose.length > 0 && (
         <>
