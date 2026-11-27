@@ -118,7 +118,7 @@ function ItemExtras({ jobId, areaId, el, photos }: { jobId: string; areaId: stri
   const showNote = noteOpen || !!el.notes
   return (
     <>
-      <div className="actions">
+      <div className="walk-actions">
         <PhotoButton busy={busy} onFiles={add} />
         <button type="button" className="iconbtn" aria-expanded={showNote} onClick={() => setNoteOpen((o) => !o)}>📝 {el.notes ? 'Note' : 'Add note'}</button>
       </div>
@@ -187,7 +187,7 @@ function AreaCard({ area: a, jobId, elements, photos }: { area: Area; jobId: str
           <div className="f"><label htmlFor={'nq' + a.id}>Qty</label><input id={'nq' + a.id} type="text" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
           <div className="f"><label htmlFor={'nu' + a.id}>Unit</label><input id={'nu' + a.id} type="text" value={unit} list="wunits" onChange={(e) => setUnit(e.target.value)} /></div>
         </div>
-        <div className="actions">
+        <div className="walk-actions">
           <PhotoButton onFiles={(fs) => setPending((p) => [...p, ...fs])} />
           <button type="button" className="iconbtn" aria-expanded={noteOpen || !!note} onClick={() => setNoteOpen((o) => !o)}>📝 {note ? 'Note' : 'Add note'}</button>
         </div>
@@ -233,7 +233,7 @@ function PhotoThumb({ photo: p }: { photo: Photo }) {
       {pic}
       {waiting && <p className="muted small">Waiting to upload: it goes up when there is signal.</p>}
       <input key={p.caption ?? ''} type="text" defaultValue={p.caption ?? ''} placeholder="Caption (optional)" aria-label="Photo caption" onBlur={(e) => e.target.value !== (p.caption ?? '') && save('walkaround_photos', p.id, { caption: e.target.value.trim() || null })} />
-      <div className="actions">
+      <div className="walk-actions">
         <button type="button" className="iconbtn" onClick={() => setOpen(false)}>Close</button>
         <button type="button" className="iconbtn" onClick={() => confirm('Remove this photo?') && remove('walkaround_photos', p.id)}>Remove photo</button>
       </div>

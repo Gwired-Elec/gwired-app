@@ -186,8 +186,8 @@ table.mini tr.strong td { font-weight: 700; border-top: 1px solid var(--grey-2);
 .clause-pick textarea { margin-top: 4px; }
 
 /* walkaround: photo and note buttons, thumbnails */
-.actions { display: flex; gap: 8px; margin-top: 10px; }
-.actions > .iconbtn { flex: 1 1 0; min-width: 0; }
+.walk-actions { display: flex; gap: 8px; margin-top: 10px; }
+.walk-actions > .iconbtn { flex: 1 1 0; min-width: 0; }
 .iconbtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 .thumbs { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 .thumb { flex: none; position: relative; width: 72px; height: 72px; padding: 0; border: 0; border-radius: 8px; background: none; overflow: hidden; cursor: pointer; }
