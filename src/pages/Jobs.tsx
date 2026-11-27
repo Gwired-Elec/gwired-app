@@ -40,15 +40,19 @@ export default function Jobs() {
       </div>
       <div className="toolbar">
         <input type="text" placeholder="Search jobs…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search jobs" />
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter by status">
-          <option value="open">Open jobs</option>
-          <option value="all">All jobs</option>
-          {statuses?.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}
-        </select>
         <div className="seg" role="group" aria-label="View">
           <button className={view === 'list' ? 'on' : ''} onClick={() => setV('list')}>List</button>
           <button className={view === 'board' ? 'on' : ''} onClick={() => setV('board')}>Board</button>
         </div>
+      </div>
+      <div className="chips" role="group" aria-label="Filter by status">
+        <button className={`chip ${filter === 'open' ? 'on' : ''}`} onClick={() => setFilter('open')}>Open <span>{(jobs ?? []).filter((j) => !closed.has(j.status)).length}</span></button>
+        <button className={`chip ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>All <span>{jobs?.length ?? 0}</span></button>
+        {statuses?.map((s) => (
+          <button key={s.id} className={`chip ${filter === s.slug ? 'on' : ''}`} style={{ '--c': s.colour } as React.CSSProperties} onClick={() => setFilter(s.slug)}>
+            <i className="dot" />{s.name} <span>{(jobs ?? []).filter((j) => j.status === s.slug).length}</span>
+          </button>
+        ))}
       </div>
 
       {!jobs && <p className="muted">Loading…</p>}
@@ -80,15 +84,16 @@ export default function Jobs() {
 }
 
 function JobCard({ job, client, statuses, unsynced, editable, onStatus, compact }: { job: Job; client?: string; statuses?: Status[]; unsynced: boolean; editable: boolean; onStatus: (slug: string) => void; compact?: boolean }) {
+  const current = statuses?.find((s) => s.slug === job.status)
   return (
-    <div className="card job">
+    <div className="card job" style={{ borderLeft: `6px solid ${current?.colour ?? '#a1a1aa'}` }}>
       <Link to={`/jobs/${job.id}`} className="jobmain">
         <span className="muted small">{job.job_number ?? 'Number pending'} · {typeLabel(job.job_type)}{unsynced && <span className="badge"> not yet synced</span>}</span>
         <strong>{job.title}</strong>
         {!compact && <span className="muted">{[client, job.site_address].filter(Boolean).join(' · ')}</span>}
-        {job.chase_date && job.status === 'awaiting_feedback' && <span className="small">Chase {fmtDate(job.chase_date)}</span>}
+        {job.chase_date && current?.asks_chase && <span className="small">Chase {fmtDate(job.chase_date)}</span>}
       </Link>
-      <select value={job.status} disabled={!editable} onChange={(e) => onStatus(e.target.value)} aria-label={`Status of ${job.title}`}>
+      <select value={job.status} disabled={!editable} onChange={(e) => onStatus(e.target.value)} aria-label={`Status of ${job.title}`} style={{ borderColor: current?.colour, color: current?.colour, fontWeight: 600 }}>
         {statuses?.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}
       </select>
     </div>

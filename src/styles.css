@@ -139,3 +139,11 @@ input[type=date] { min-height: 48px; padding: 0 12px; border: 1px solid var(--gr
 table.mini { border-collapse: collapse; font-size: 0.85rem; }
 table.mini td { border: 1px solid var(--grey-2); padding: 4px 8px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 table.mini tr.hdr td { background: var(--grey-1); font-weight: 700; }
+
+/* status filter chips, colour coded */
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; }
+.chip { --c: #52525b; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--c); background: transparent; color: var(--c); font-weight: 600; cursor: pointer; }
+.chip span { opacity: .75; font-weight: 500; }
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.chip.on { background: var(--c); color: #fff; }
+.chip.on .dot { background: #fff; }

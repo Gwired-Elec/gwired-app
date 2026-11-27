@@ -62,7 +62,7 @@ export default function NewJob() {
       job_type: type,
       source: source.trim() || null,
       notes: notes.trim() || null,
-      status: 'enquiry',
+      status: 'estimating',
     })
     await logActivity('job', id, 'created', { title: title.trim() }, { id: profile!.id, name: profile!.full_name || profile!.email })
     nav(`/jobs/${id}`, { replace: true })
