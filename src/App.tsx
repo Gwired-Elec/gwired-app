@@ -17,6 +17,7 @@ import NewJob from './pages/NewJob'
 import JobDetail from './pages/JobDetail'
 import { ClientList, ClientDetail } from './pages/Clients'
 import SyncLog from './pages/SyncLog'
+import PipelineSettings from './pages/PipelineSettings'
 
 export default function App() {
   const { loading, session, profile, recovering } = useAuth()
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="more/users" element={<Users />} />
         <Route path="more/security" element={<Security />} />
         <Route path="more/sync" element={<SyncLog />} />
+        <Route path="more/pipeline" element={<PipelineSettings />} />
         <Route path="login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

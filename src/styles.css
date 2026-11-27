@@ -114,3 +114,7 @@ input:disabled, select:disabled, textarea:disabled { background: var(--grey-1); 
 @media (min-width: 768px) { .overlay { align-items: center; } .sheet { border-radius: 16px; } }
 @media (max-width: 767px) { .sidesync { display: none; } }
 .subform { border-left: 3px solid var(--red); padding: 4px 0 4px 14px; margin: 14px 0 4px; }
+.setrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--grey-2); }
+.setrow input[type=text] { flex: 1 1 180px; width: auto; }
+.setrow input[type=color] { width: 44px; height: 44px; padding: 2px; border: 1px solid var(--grey-2); border-radius: 10px; background: var(--white); }
+label.check.mini { font-size: 0.85rem; min-height: 44px; margin: 0; }

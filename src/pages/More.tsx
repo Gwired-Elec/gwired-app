@@ -34,6 +34,9 @@ export default function More() {
       )}
       <Link className="card linkcard" to="/more/sync"><strong>Sync and storage</strong><span className="muted"> What's waiting to send, conflicts, space used</span></Link>
       <Link className="card linkcard" to="/more/security"><strong>Security</strong><span className="muted"> PIN, Face ID, auto-lock and passkeys</span></Link>
+      {can('settings') && (
+        <Link className="card linkcard" to="/more/pipeline"><strong>Job pipeline</strong><span className="muted"> Statuses and lost reasons</span></Link>
+      )}
       {can('users') && (
         <Link className="card linkcard" to="/more/users"><strong>Users</strong><span className="muted"> Add staff and choose what they can see</span></Link>
       )}
