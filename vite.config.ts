@@ -10,7 +10,7 @@ export default defineConfig({
     // Installable app that opens from the device's cache with no signal (built app only, not npm run dev).
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['brand/icon.svg'],
+      includeAssets: ['apple-touch-icon.png', 'favicon-64.png', 'brand/gwired-logo.png'],
       manifest: {
         name: 'G|Wired Electrical Services',
         short_name: 'G|Wired',
@@ -19,7 +19,11 @@ export default defineConfig({
         background_color: '#0A0A0A',
         display: 'standalone',
         start_url: '/',
-        icons: [{ src: 'brand/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        icons: [
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
       },
       workbox: { navigateFallback: '/index.html', globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },
     }),

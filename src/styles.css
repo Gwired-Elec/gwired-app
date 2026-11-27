@@ -38,7 +38,7 @@ label.check input { width: 22px; height: 22px; }
 .login { min-height: 100%; background: var(--black); color: var(--white); display: grid; place-items: center; padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); }
 .login-box { width: 100%; max-width: 380px; }
 .login .logo { text-align: center; margin-bottom: 28px; }
-.login .logo img { max-width: 240px; width: 70%; }
+.login .logo img { width: 120px; height: 120px; display: block; margin: 0 auto 14px; }
 .logo-text { font-weight: 800; font-size: 2rem; letter-spacing: 0.15em; }
 .logo-text span, .brand span { display: block; font-size: 0.6rem; letter-spacing: 0.3em; color: var(--red); margin-top: 4px; }
 .login input[type=email], .login input[type=password], .login input[type=text] { background: #18181b; border-color: #3f3f46; color: var(--white); }

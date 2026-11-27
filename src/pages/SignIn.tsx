@@ -53,8 +53,8 @@ export default function SignIn() {
     <div className="login">
       <div className="login-box">
         <div className="logo">
-          <img src="/brand/gwired-logo.png" alt="G|Wired Electrical Services" onError={(e) => ((e.currentTarget.style.display = 'none'), (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute('hidden'))} />
-          <div hidden className="logo-text">G | WIRED<span>ELECTRICAL SERVICES</span></div>
+          <img src="/brand/gwired-logo.png" alt="G|Wired" onError={(e) => (e.currentTarget.style.display = 'none')} />
+          <div className="logo-text">G | WIRED<span>ELECTRICAL SERVICES</span></div>
         </div>
         <form onSubmit={submit}>
           <label htmlFor="email">Email</label>
