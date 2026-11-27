@@ -8,6 +8,7 @@ import Home from './pages/Home'
 import ComingSoon from './pages/ComingSoon'
 import More from './pages/More'
 import Users from './pages/Users'
+import CompanyDetails from './pages/CompanyDetails'
 import Security from './pages/Security'
 import LockScreen from './components/LockScreen'
 import { useLock } from './lib/lock'
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="todos" element={<ComingSoon title="To-dos" phase="Phase 8" />} />
         <Route path="more" element={<More />} />
         <Route path="more/users" element={<Users />} />
+        <Route path="more/company" element={<CompanyDetails />} />
         <Route path="more/security" element={<Security />} />
         <Route path="more/sync" element={<SyncLog />} />
         <Route path="more/pipeline" element={<PipelineSettings />} />

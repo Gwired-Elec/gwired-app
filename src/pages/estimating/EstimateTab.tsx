@@ -15,6 +15,9 @@ import { formatGBP } from '../../lib/money'
 import { db, WRITABLE } from '../../lib/sync/db'
 import { logActivity, newId, remove, save, saveBatch } from '../../lib/sync/store'
 import { METHODS } from '../../lib/estimating/data'
+import { buildQuotePdf } from '../../lib/estimating/quotePdf'
+import { cachedCompany, loadCompany } from '../../lib/company'
+import { useClients } from '../../lib/jobs'
 
 const today = () => new Date().toISOString().slice(0, 10)
 const r4 = (n: number) => Number(n.toFixed(4))
@@ -221,7 +224,7 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     const amount = p.kind === 'fixed' ? p.amount_pence : Math.round((totals.linesPence * p.percent) / 100)
     await addLine(base(sectionId, { kind: 'prelim', description: p.kind === 'fixed' ? p.name : `${p.name} (${p.percent}% of lines at the time)`, unit_cost: amount, unit_sell: amount }))
   }
-  async function addOwn(f: { description: string; qty: number; unit: string; cost: string; sell: string; learn: boolean }, sectionId: string): Promise<string> {
+  async function addOwn(f: { description: string; qty: number; unit: string; cost: string; sell: string }, sectionId: string): Promise<string> {
     const cost = f.cost.trim() ? priceAndPer(f.cost) : { costPence: 0, perQty: 1 }
     if (!cost) return 'Check the cost: use pounds and pence, e.g. 12.50'
     const unitCost = cost.costPence / cost.perQty
@@ -230,13 +233,23 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     const markup = settings.default_markup_pct
     const unitSell = sellP ? sellP.costPence / sellP.perQty : sellPerUnit(unitCost, markup)
     let materialId: string | null = null
-    if (f.learn && unitCost > 0) {
-      materialId = newId()
-      await save('materials', materialId, { description: f.description, unit: f.unit || 'each', active: true })
+    // an item that isn't in the materials database yet goes in as soon as it has a cost
+    if (unitCost > 0) {
+      materialId = await findOrCreateMaterial(f.description, f.unit || 'each')
       await learnPrice(materialId, unitCost)
     }
     await addLine(base(sectionId, { kind: materialId ? 'material' : 'item', description: f.description, unit: f.unit || 'each', qty: f.qty, material_id: materialId, markup_pct: markup, unit_cost: r4(unitCost), unit_sell: r4(unitSell), price_date: unitCost > 0 ? today() : null, price_source: `Priced on job ${jobRef}` }))
     return ''
+  }
+
+  // the material with this description if there is one already (so nothing is entered twice), otherwise a new one
+  async function findOrCreateMaterial(description: string, unit: string): Promise<string> {
+    const key = description.trim().toLowerCase()
+    const found = materials!.find((m) => m.active !== false && m.description.trim().toLowerCase() === key)
+    if (found) return found.id
+    const id = newId()
+    await save('materials', id, { description: description.trim(), unit, active: true })
+    return id
   }
 
   // writes a price someone typed on this estimate back into the materials database (dated today, tagged with the job)
@@ -263,13 +276,20 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
     const unitCost = r4(c.costPence / c.perQty)
     if (unitCost === l.unit_cost) return
     const patch: Record<string, unknown> = { unit_cost: unitCost }
+    let materialId = l.material_id
+    if (l.kind === 'item' && !materialId && unitCost > 0 && l.unit !== 'hour') {
+      // a one-off item that now has a cost joins the materials database and becomes a normal material line
+      materialId = await findOrCreateMaterial(l.description, l.unit || 'each')
+      Object.assign(patch, { kind: 'material', material_id: materialId, markup_pct: l.markup_pct ?? settings.default_markup_pct })
+      l = { ...l, kind: 'material', markup_pct: l.markup_pct ?? settings.default_markup_pct }
+    }
     if (l.kind === 'material') {
       patch.unit_sell = r4(sellPerUnit(unitCost, l.markup_pct ?? settings.default_markup_pct))
       patch.price_date = today()
       patch.price_source = `Priced on job ${jobRef}`
     }
     await editLine(l, patch)
-    if (l.kind === 'material' && l.material_id) await learnPrice(l.material_id, unitCost)
+    if (l.kind === 'material' && materialId) await learnPrice(materialId, unitCost)
     setWarns([])
   }
   async function newSell(l: Line, text: string) {
@@ -366,8 +386,9 @@ function Editor({ job, est, sections, lines, others, user, canEdit }: { job: Job
       <TotalsCard t={totals} est={est} seeCost={seeCost} methodName={methodName} />
 
       {canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
+      <QuoteButton job={job} est={est} sections={sections} lines={lines} />
       {canEdit && est.status === 'issued' && <button className="btn" onClick={() => setEst({ status: 'accepted' })}>Mark as accepted</button>}
-      <p className="muted small">The quote PDF and emailing it arrive next. Issuing sets the job's quote value to the net figure above.</p>
+      <p className="muted small">Issuing sets the job's quote value to the net figure above. Emailing the quote arrives once Outlook is connected.</p>
     </>
   )
 }
@@ -420,11 +441,11 @@ function AddPanel(p: {
   onDay: (id: string, days: number) => void
   onAssembly: (id: string) => void
   onPrelim: (id: string) => void
-  onOwn: (f: { description: string; qty: number; unit: string; cost: string; sell: string; learn: boolean }) => Promise<string>
+  onOwn: (f: { description: string; qty: number; unit: string; cost: string; sell: string }) => Promise<string>
 }) {
   const [pick, setPick] = useState('')
   const [qty, setQty] = useState('1')
-  const [own, setOwn] = useState({ description: '', qty: '1', unit: 'each', cost: '', sell: '', learn: true })
+  const [own, setOwn] = useState({ description: '', qty: '1', unit: 'each', cost: '', sell: '' })
   const [err, setErr] = useState('')
   const n = Number(qty)
   const okQty = Number.isFinite(n) && n > 0
@@ -474,9 +495,9 @@ function AddPanel(p: {
       e.preventDefault()
       const q = Number(own.qty)
       if (!own.description.trim() || !Number.isFinite(q) || q <= 0) return setErr('Add a description and a quantity.')
-      const msg = await p.onOwn({ description: own.description.trim(), qty: q, unit: own.unit.trim(), cost: own.cost, sell: own.sell, learn: own.learn })
+      const msg = await p.onOwn({ description: own.description.trim(), qty: q, unit: own.unit.trim(), cost: own.cost, sell: own.sell })
       setErr(msg)
-      if (!msg) setOwn({ description: '', qty: '1', unit: 'each', cost: '', sell: '', learn: true })
+      if (!msg) setOwn({ description: '', qty: '1', unit: 'each', cost: '', sell: '' })
     }}>
       <label htmlFor="od">Description</label>
       <input id="od" type="text" value={own.description} onChange={(e) => setOwn({ ...own, description: e.target.value })} />
@@ -486,7 +507,7 @@ function AddPanel(p: {
         {p.seeCost && <div className="f"><label htmlFor="oc">Cost each £</label><input id="oc" type="text" inputMode="decimal" value={own.cost} onChange={(e) => setOwn({ ...own, cost: e.target.value })} /></div>}
         <div className="f"><label htmlFor="os">Sell each £ (blank = cost + {p.defaultMarkup}%)</label><input id="os" type="text" inputMode="decimal" value={own.sell} onChange={(e) => setOwn({ ...own, sell: e.target.value })} /></div>
       </div>
-      {p.seeCost && <label className="check"><input type="checkbox" checked={own.learn} onChange={(e) => setOwn({ ...own, learn: e.target.checked })} /> Remember this price in the materials database</label>}
+      {p.seeCost && <p className="muted small">If it has a cost and isn't in the materials database yet, it is added there automatically, dated today.</p>}
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn primary">Add</button>
     </form>
@@ -540,6 +561,59 @@ function TotalsCard({ t, est, seeCost, methodName }: { t: Totals; est: Estimate;
       {seeCost && (
         <p className="muted small">Cost to you {formatGBP(t.costPence)} · margin {formatGBP(t.marginPence)} ({t.marginPct}% of the net){methodName ? ` · lines default to: ${methodName}` : ''}</p>
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- the quote PDF
+function QuoteButton({ job, est, sections, lines }: { job: Job; est: Estimate; sections: Section[]; lines: Line[] }) {
+  const clients = useClients()
+  const [detail, setDetail] = useState<'lines' | 'sections'>('lines')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function make() {
+    setBusy(true)
+    setErr('')
+    try {
+      const company = navigator.onLine ? await loadCompany() : cachedCompany()
+      let logo: Uint8Array | null = null
+      try {
+        const res = await fetch('/brand/gwired-logo-full.png')
+        if (res.ok) logo = new Uint8Array(await res.arrayBuffer())
+      } catch { /* no logo */ }
+      const client = clients?.find((c) => c.id === job.client_id) ?? null
+      const bytes = await buildQuotePdf({
+        company, job: { job_number: job.job_number, title: job.title, site_address: job.site_address },
+        client: client ? { name: client.name, address: client.address } : null, estimate: est, sections, lines, detail, date: new Date(), logoPng: logo,
+      })
+      const name = 'Quote ' + (job.job_number ?? 'draft') + (est.rev > 1 ? ' rev ' + revLetter(est.rev) : '') + '.pdf'
+      const file = new File([bytes as BlobPart], name, { type: 'application/pdf' })
+      if (navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: name }); return } catch (e) { if ((e as Error).name === 'AbortError') return }
+      }
+      const url = URL.createObjectURL(file)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch (e) {
+      setErr((e as Error).message || 'Could not make the PDF.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="card">
+      <h2>Quote PDF</h2>
+      <label htmlFor="qd">What the client sees</label>
+      <select id="qd" value={detail} onChange={(e) => setDetail(e.target.value as 'lines' | 'sections')}>
+        <option value="lines">Every line with quantities and prices</option>
+        <option value="sections">Section totals only</option>
+      </select>
+      <p className="muted small">Overheads, profit and any discount are built into the prices. Costs and margins are never shown.</p>
+      {err && <p className="err" role="alert">{err}</p>}
+      <button className="btn" onClick={make} disabled={busy || !lines.length}>{busy ? 'Making…' : 'Make quote PDF'}</button>
     </div>
   )
 }
