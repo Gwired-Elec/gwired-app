@@ -111,19 +111,20 @@ export function DiaryPanel({ jobId }: { jobId?: string }) {
           </div>
         </div>
         <div className="rowtop" style={{ alignItems: 'center', marginTop: 8 }}>
-          <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={() => step(-1)} aria-label="Earlier">‹</button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button className="btn" style={{ width: 'auto', marginTop: 0, minHeight: 36, padding: '0 12px' }} onClick={() => step(-1)} aria-label="Earlier">‹</button>
+            <button className="btn" style={{ width: 'auto', marginTop: 0, minHeight: 36, padding: '0 10px', fontSize: '.85rem' }} onClick={() => (setAnchor(t0), setPicked(t0))}>Today</button>
+          </div>
           <strong>{title}</strong>
-          <button className="btn" style={{ width: 'auto', marginTop: 0 }} onClick={() => step(1)} aria-label="Later">›</button>
+          <button className="btn" style={{ width: 'auto', marginTop: 0, minHeight: 36, padding: '0 12px' }} onClick={() => step(1)} aria-label="Later">›</button>
         </div>
         <div className="actions" style={{ marginTop: 8 }}>
-          <button className="btn" onClick={() => (setAnchor(t0), setPicked(t0))}>Today</button>
           {edit && <button className="btn primary" onClick={() => setForm({ date: view === 'month' ? picked : t0 })}>+ Add a diary entry</button>}
           <button className="btn" onClick={download} title="A calendar file you can open in Outlook, Google or Apple Calendar">Download calendar file</button>
         </div>
       </div>
       {form && <EventForm key={form.id ?? 'new' + form.date} ev={evs.find((e) => e.id === form.id)} date={form.date} labels={labels} me={me} onClose={() => setForm(null)} />}
 
-      <CalendarLink />
       {view === 'week' && week.map((d) => <DayBlock key={d} d={d} />)}
       {view === 'month' && (
         <>
@@ -147,6 +148,7 @@ export function DiaryPanel({ jobId }: { jobId?: string }) {
           <DayBlock d={picked} />
         </>
       )}
+      <CalendarLink />
     </>
   )
 }
