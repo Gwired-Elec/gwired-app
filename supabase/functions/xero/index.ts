@@ -176,6 +176,10 @@ async function refresh() {
         if (row) {
           const label = (l.source_type === "application" ? "Application " : "Invoice ") + row.number;
           await admin.from("activity_log").insert({ entity: "job", entity_id: row.job_id, action: "payment_received", detail: { label, amount_pence: amountPaid, xero_number: inv.InvoiceNumber ?? null, date: when }, user_name: "Xero" });
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/push`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      body: JSON.stringify({ action: "notify", kind: "payment", job_id: row.job_id, text: `${label} paid in Xero` }),
+    }).catch(() => undefined); // a failed push must never stop the acceptance
         }
         paid += 1;
       }

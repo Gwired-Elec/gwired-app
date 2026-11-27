@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { signOutEverywhere } from '../lib/users'
 import { useSafeSignOut } from '../lib/sync/signout'
+import PushSettings from '../components/PushSettings'
 
 export default function More() {
   const { profile, can, isOwner } = useAuth()
@@ -29,6 +30,7 @@ export default function More() {
         </div>
         {msg && <p className="err">{msg}</p>}
       </div>
+      <PushSettings />
       {(can('clients.view') || can('jobs.view')) && (
         <Link className="card linkcard" to="/clients"><strong>Clients</strong><span className="muted"> Clients and their contacts</span></Link>
       )}

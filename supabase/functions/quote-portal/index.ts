@@ -72,6 +72,10 @@ Deno.serve(async (req) => {
       { entity: "job", entity_id: job.id, action: "status", detail: { from: job.status, to: "live", by: "client", quote: link.snapshot?.ref }, user_name: `${name} (client, online)` },
       { entity: "job", entity_id: job.id, action: "quote_accepted", detail: { by: "client", name, quote: link.snapshot?.ref }, user_name: `${name} (client, online)` },
     ]);
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/push`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      body: JSON.stringify({ action: "notify", kind: "quote_accepted", job_id: job.id, text: `Quote ${link.snapshot?.ref ?? ""} accepted online by ${name}` }),
+    }).catch(() => undefined); // a failed push must never stop the acceptance
   }
   return json({ state: "accepted", accepted: { name, at: nowIso } });
 });

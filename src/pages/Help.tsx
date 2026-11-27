@@ -25,7 +25,7 @@ const SCRIPTS: [string, string][] = [
   ['011', 'Labour day and night rates'], ['012', 'Assumptions and exclusions library'], ['013', 'Site walkaround'], ['014', 'Walkaround photos and photo storage'],
   ['015', 'Photos belong to items'], ['016', 'Keep original photo when marked up'], ['017', 'Variations, applications, invoices'], ['018', 'Part-accepted variations'],
   ['019', 'Price variations like an estimate'], ['020', 'Photos on variation items'], ['021', 'To-dos and diary'], ['022', 'Calendar link for Apple Calendar'],
-  ['023', 'Xero link'], ['024', 'Files on a job'], ['025', 'Job costs'], ['026', 'Client quote links'],
+  ['023', 'Xero link'], ['024', 'Files on a job'], ['025', 'Job costs'], ['026', 'Client quote links'], ['027', 'Materials procurement list'], ['028', 'Push notifications'], ['029', 'The 7am daily summary'],
 ]
 
 export default function Help() {
@@ -123,7 +123,7 @@ export default function Help() {
       </S>
 
       <S title="To-dos and diary">
-        <p>To-dos can be given to a person, a date and a job, and ticked off. Type <strong>@</strong> in a to-do and pick a name to tag someone: they get a green notice on Home until they dismiss it or the to-do is done. The diary is for who is where and when. Add anything from Home or from inside a job.</p>
+        <p>To-dos can be given to a person, a date and a job, and ticked off. Turn on <strong>Notifications</strong> under More (on an iPhone the app must be on the Home Screen first) to get a notice when a client accepts a quote, an invoice is paid in Xero, someone tags you, and a 7am summary. Type <strong>@</strong> in a to-do and pick a name to tag someone: they get a green notice on Home until they dismiss it or the to-do is done. The diary is for who is where and when. Add anything from Home or from inside a job.</p>
         <p><strong>Apple Calendar:</strong> Home → bottom of the page → <strong>Calendar options</strong>. <strong>Show in Apple Calendar</strong> subscribes your calendar so jobs appear on your phone and stay up to date. <strong>Download calendar file</strong> gives a one-off copy. Each person has their own private link; keep it to yourself. <em>Make a new link</em> if it is ever shared by mistake.</p>
       </S>
 
@@ -226,6 +226,7 @@ export default function Help() {
               <li><strong>manage-users</strong>: adds and edits staff. <strong>Verify JWT: ON.</strong></li>
               <li><strong>diary-feed</strong>: the Apple Calendar link. <strong>Verify JWT: OFF</strong> (a calendar app cannot sign in).</li>
               <li><strong>xero</strong>: the Xero link. <strong>Verify JWT: OFF</strong> (Xero comes back with no sign-in).</li>
+              <li><strong>push</strong>: notifications to phones. <strong>Verify JWT: OFF</strong>. Needs the secrets VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and CRON_SECRET.</li>
               <li><strong>quote-portal</strong>: the client's quote link page. <strong>Verify JWT: OFF</strong> (clients do not sign in).</li>
             </ul>
           </li>

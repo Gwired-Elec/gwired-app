@@ -6,7 +6,8 @@ import { addDaysIso, shortDay, todayIso, useReminders, useTodos, type Recurrence
 import { newId, remove, save } from '../../lib/sync/store'
 import { JobSelect, PersonSelect, useLabels } from './shared'
 import MentionInput from '../../components/MentionInput'
-import { splitMentions } from '../../lib/planner/mentions'
+import { mentionedIds, splitMentions } from '../../lib/planner/mentions'
+import { notifyTagged } from '../../lib/push'
 
 const REPEAT: [Recurrence, string][] = [['none', 'Does not repeat'], ['daily', 'Every day'], ['weekly', 'Every week'], ['monthly', 'Every month']]
 
@@ -38,6 +39,7 @@ export function TodoPanel({ jobId }: { jobId?: string }) {
   async function add() {
     if (!title.trim()) return
     await save('todos', newId(), { title: title.trim(), job_id: jobId ?? (job || null), assigned_to: who || null, due_date: due || null, recurrence: due ? rep : 'none', show_in_diary: true, created_by: me })
+    notifyTagged(title.trim(), jobId ?? (job || null), mentionedIds(title, labels.team).filter((id) => id !== me))
     setTitle(''); setDue(''); setRep('none'); setMore(false)
   }
 
