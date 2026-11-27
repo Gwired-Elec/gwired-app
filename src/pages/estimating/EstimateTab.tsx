@@ -20,6 +20,8 @@ import { logActivity, newId, remove, save, saveBatch } from '../../lib/sync/stor
 import { METHODS, hourlyCharge, hourlyCost } from '../../lib/estimating/data'
 import { buildQuotePdf } from '../../lib/estimating/quotePdf'
 import { cachedCompany, loadCompany } from '../../lib/company'
+import ClientLink from './ClientLink'
+import { starterTodos } from '../../lib/planner/starter'
 import { useClients, useReasons, useStatuses, useStatusFlow } from '../../lib/jobs'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -376,6 +378,16 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
     if (job.status === 'estimating' && statuses?.some((x) => x.slug === 'quoted')) askStatus(job, 'quoted')
   }
 
+  // one tap when the client says yes (by phone, email or in person): quote accepted, job Live, starter checklist added to its to-dos
+  async function acceptAndStart() {
+    if (!window.confirm('Mark this quote as accepted, move the job to Live and add the starter checklist to its to-dos?')) return
+    await setEst({ status: 'accepted' })
+    if (job.status === 'estimating' || job.status === 'quoted') askStatus(job, 'live')
+    const have = (await db().todos.where('job_id').equals(job.id).filter((t) => !t.deleted_at).toArray()).map((t) => String(t.title))
+    await saveBatch(starterTodos(today(), have).map((t) => ({ tbl: 'todos' as const, id: newId(), patch: { ...t, job_id: job.id, show_in_diary: true, recurrence: 'none', created_by: user.id } })))
+    await logActivity('job', job.id, 'quote_accepted', { rev: revLetter(est.rev), by: 'staff' }, user)
+  }
+
   const methodName = METHODS.find((m) => m[0] === est.method)?.[1]
 
   return (
@@ -467,9 +479,10 @@ export function Editor({ job, est, sections, lines, clauses, library, others, us
 
       {!variation && canEdit && draft && <button className="btn primary" onClick={issue} disabled={!lines.length}>Issue this quote (revision {revLetter(est.rev)})</button>}
       {!variation && <QuoteButton job={job} est={est} sections={sections} lines={lines} clauses={clauses} />}
-      {!variation && canEdit && est.status === 'issued' && <button className="btn" onClick={() => setEst({ status: 'accepted' })}>Mark as accepted</button>}
+      {!variation && (est.status === 'issued' || est.status === 'accepted') && <ClientLink job={job} est={est} sections={sections} lines={lines} clauses={clauses} canEdit={canEdit} />}
+      {!variation && canEdit && est.status === 'issued' && <button className="btn primary" onClick={acceptAndStart}>Accept and start job</button>}
       {statusDialog}
-      {!variation && <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Emailing the quote arrives once Outlook is connected.</p>}
+      {!variation && <p className="muted small">Issuing sets the job's quote value to the net figure above and moves the job to Quoted. Once issued, make a client link below to send it as a web page the client can accept.</p>}
     </>
   )
 }

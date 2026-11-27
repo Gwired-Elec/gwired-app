@@ -25,7 +25,7 @@ const SCRIPTS: [string, string][] = [
   ['011', 'Labour day and night rates'], ['012', 'Assumptions and exclusions library'], ['013', 'Site walkaround'], ['014', 'Walkaround photos and photo storage'],
   ['015', 'Photos belong to items'], ['016', 'Keep original photo when marked up'], ['017', 'Variations, applications, invoices'], ['018', 'Part-accepted variations'],
   ['019', 'Price variations like an estimate'], ['020', 'Photos on variation items'], ['021', 'To-dos and diary'], ['022', 'Calendar link for Apple Calendar'],
-  ['023', 'Xero link'], ['024', 'Files on a job'], ['025', 'Job costs'],
+  ['023', 'Xero link'], ['024', 'Files on a job'], ['025', 'Job costs'], ['026', 'Client quote links'],
 ]
 
 export default function Help() {
@@ -52,6 +52,11 @@ export default function Help() {
       const r = await fetch(`${supabaseUrl}/functions/v1/diary-feed`, { method: 'GET' })
       out.push({ label: 'Calendar function is deployed', ok: r.status !== 404, note: r.status === 404 ? 'Not found: deploy diary-feed (see "If something stops working").' : '' })
     } catch { out.push({ label: 'Calendar function is deployed', ok: false, note: 'No answer.' }) }
+    try {
+      const r = await fetch(`${supabaseUrl}/functions/v1/quote-portal`, { method: 'GET' })
+      const ok = r.status !== 404 || (await r.text()).includes('not_found')
+      out.push({ label: 'Client quote link function is deployed', ok, note: ok ? '' : 'Not found: deploy quote-portal (see "If something stops working").' })
+    } catch { out.push({ label: 'Client quote link function is deployed', ok: false, note: 'No answer.' }) }
     try {
       const r = await fetch(`${supabaseUrl}/functions/v1/xero`, { method: 'GET' })
       out.push({ label: 'Xero function is deployed', ok: r.status !== 404, note: r.status === 404 ? 'Not found: deploy xero (see "If something stops working").' : '' })
@@ -107,7 +112,7 @@ export default function Help() {
         <ul>
           <li><strong>Overview:</strong> client, site, contacts, status and the quote value / chance of winning (this feeds the dashboard pipeline).</li>
           <li><strong>Walkaround:</strong> on the site visit add areas, then notes and items with photos. Tap a photo to mark it up with a pen. The original is always kept. Walkaround items can be pulled into the estimate.</li>
-          <li><strong>Estimate:</strong> build the price from materials, price per point, assemblies and day rates. Overheads and profit are added at the bottom. Tick the standard assumptions and exclusions that go on the quote, then make the quote PDF or Excel. Revisions are kept; the accepted one becomes the contract.</li>
+          <li><strong>Estimate:</strong> build the price from materials, price per point, assemblies and day rates. Overheads and profit are added at the bottom. Tick the standard assumptions and exclusions that go on the quote, then make the quote PDF or Excel. Revisions are kept; the accepted one becomes the contract.<br /><strong>Client link:</strong> once a quote is issued, tap <strong>Make client link</strong>, then <strong>Send or copy link</strong> and send it by text, WhatsApp or email. The client opens it with no login, reads the quote, downloads the PDF and taps <strong>Accept</strong> (they type their name and tick a box). It shows the quote exactly as issued. You can see whether it has been opened and when. When they accept, the quote is marked accepted, the job goes to Live and a starter checklist appears in the job's To-dos. <strong>Stop link</strong> switches a link off. If you issue a new revision, the old link tells the client it has been replaced.<br /><strong>Accept and start job:</strong> if the client says yes by phone or in person, tap this instead: it does the same thing (accepted, job Live, starter checklist) in one tap.</li>
           <li><strong>Variations:</strong> priced the same way as an estimate. When the client approves, enter the value they accepted (it starts at the full amount; tap it to change). Any shortfall shows as a discount on the next application.</li>
           <li><strong>Applications:</strong> applications for payment on commercial jobs (set each line by % or £, or set every line at once in 5% steps). Retention applies on commercial jobs only. CIS and domestic reverse charge VAT are tick-boxes at the top. Domestic jobs use simple invoices: deposit, stage payments and balance. Issue makes a PDF; mark it paid when the money arrives.</li>
           <li><strong>Costs:</strong> money going out. Budget comes from the estimate. Time on site comes from the diary at the day rate and can be overruled by hand if the diary was not kept up. Add materials bought, materials still needed ("Mark as bought" when they arrive), and misc or non-recoverable costs.</li>
@@ -156,7 +161,7 @@ export default function Help() {
       )}
 
       <S title="If something stops working">
-        <p>Start with <strong>Check connections</strong> at the top of this page. It tells you which link is broken. The app has four connections, and they only break in a few ways:</p>
+        <p>Start with <strong>Check connections</strong> at the top of this page. It tells you which link is broken. The app has four connections (database, website, server functions, Xero), and they only break in a few ways:</p>
 
         <H>1. Changes are not saving or not appearing on another device</H>
         <ol>
@@ -213,13 +218,14 @@ export default function Help() {
         </ol>
 
         <H>C. Re-linking the server functions (Supabase Edge Functions)</H>
-        <p className="muted small">Three small programs run on Supabase: they cannot run from the website itself.</p>
+        <p className="muted small">Four small programs run on Supabase: they cannot run from the website itself.</p>
         <ol>
           <li>In Supabase click <strong>Edge Functions</strong> (left) and look for these three:
             <ul>
               <li><strong>manage-users</strong>: adds and edits staff. <strong>Verify JWT: ON.</strong></li>
               <li><strong>diary-feed</strong>: the Apple Calendar link. <strong>Verify JWT: OFF</strong> (a calendar app cannot sign in).</li>
               <li><strong>xero</strong>: the Xero link. <strong>Verify JWT: OFF</strong> (Xero comes back with no sign-in).</li>
+              <li><strong>quote-portal</strong>: the client's quote link page. <strong>Verify JWT: OFF</strong> (clients do not sign in).</li>
             </ul>
           </li>
           <li>A function that is missing needs deploying. Click <strong>Deploy a new function → Via Editor</strong>, name it exactly as above, paste in the file from GitHub (<strong>supabase → functions → [name] → index.ts</strong>) and click <strong>Deploy</strong>. Then open its settings and set <strong>Verify JWT</strong> as above.</li>

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import { configError } from './lib/supabase'
 import Layout from './components/Layout'
@@ -14,6 +14,7 @@ import Users from './pages/Users'
 import CompanyDetails from './pages/CompanyDetails'
 import Security from './pages/Security'
 import Help from './pages/Help'
+import QuotePortal from './pages/QuotePortal'
 import LockScreen from './components/LockScreen'
 import { useLock } from './lib/lock'
 import DbGate from './components/DbGate'
@@ -33,6 +34,11 @@ import { AssemblyList, AssemblyDetail } from './pages/estimating/Assemblies'
 export default function App() {
   const { loading, session, profile, recovering } = useAuth()
   const { locked } = useLock()
+  const loc = useLocation()
+
+  // the client's quote link: public, no sign-in, never touches the staff app
+  const q = /^\/q\/([0-9a-f]{32,128})\/?$/.exec(loc.pathname)
+  if (q) return <QuotePortal token={q[1]} preview={new URLSearchParams(loc.search).get('p') === '1'} />
 
   if (configError) return <div className="centre"><div className="card"><h1>Setup needed</h1><p>{configError}</p></div></div>
   if (loading) return <div className="centre"><p className="muted">Loading…</p></div>

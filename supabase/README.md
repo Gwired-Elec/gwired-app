@@ -28,4 +28,5 @@ Run in order in Supabase > SQL Editor. Never re-run a script. Any change = a new
 | 023_xero.sql | Xero link (also deploy the xero function and add its secrets) | not yet |
 | 024_job_files.sql | files on a job (tech sheets, drawings) with a private storage bucket | not yet |
 | 025_job_costs.sql | job costs: labour from the diary (overridable), materials, misc, non-recoverable | run |
+| 026_quote_portal.sql | client quote links (also deploy the quote-portal function, Verify JWT off) | not yet |
 | 008_estimates.sql | estimates, sections and lines for the estimate builder | run |
