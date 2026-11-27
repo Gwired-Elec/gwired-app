@@ -123,7 +123,7 @@ export default function Help() {
       </S>
 
       <S title="To-dos and diary">
-        <p>To-dos can be given to a person, a date and a job, and ticked off. The diary is for who is where and when. Add anything from Home or from inside a job.</p>
+        <p>To-dos can be given to a person, a date and a job, and ticked off. Type <strong>@</strong> in a to-do and pick a name to tag someone: they get a green notice on Home until they dismiss it or the to-do is done. The diary is for who is where and when. Add anything from Home or from inside a job.</p>
         <p><strong>Apple Calendar:</strong> Home → bottom of the page → <strong>Calendar options</strong>. <strong>Show in Apple Calendar</strong> subscribes your calendar so jobs appear on your phone and stay up to date. <strong>Download calendar file</strong> gives a one-off copy. Each person has their own private link; keep it to yourself. <em>Make a new link</em> if it is ever shared by mistake.</p>
       </S>
 

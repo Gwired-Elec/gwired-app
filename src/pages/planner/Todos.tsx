@@ -5,6 +5,8 @@ import { toggleTodo } from '../../lib/planner/actions'
 import { addDaysIso, shortDay, todayIso, useReminders, useTodos, type Recurrence, type Todo } from '../../lib/planner/data'
 import { newId, remove, save } from '../../lib/sync/store'
 import { JobSelect, PersonSelect, useLabels } from './shared'
+import MentionInput from '../../components/MentionInput'
+import { splitMentions } from '../../lib/planner/mentions'
 
 const REPEAT: [Recurrence, string][] = [['none', 'Does not repeat'], ['daily', 'Every day'], ['weekly', 'Every week'], ['monthly', 'Every month']]
 
@@ -62,7 +64,7 @@ export function TodoPanel({ jobId }: { jobId?: string }) {
       {edit && (
         <div className="card">
           <label htmlFor="td-new">Add a to-do</label>
-          <input id="td-new" type="text" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="e.g. Order 100m 2.5mm twin and earth" />
+          <MentionInput id="td-new" value={title} onChange={setTitle} onEnter={add} placeholder="e.g. Order 100m 2.5mm twin and earth. Type @ to tag someone" />
           <div className="chips fit" role="group" aria-label="When">
             <button className={`chip seg ${due === t0 ? 'on' : ''}`} onClick={() => setDue(due === t0 ? '' : t0)}>Today</button>
             <button className={`chip seg ${due === addDaysIso(t0, 1) ? 'on' : ''}`} onClick={() => setDue(due === addDaysIso(t0, 1) ? '' : addDaysIso(t0, 1))}>Tomorrow</button>
@@ -130,7 +132,7 @@ function TodoCard({ t, labels, open, onOpen, edit, hideJob }: { t: Todo; labels:
         <button type="button" aria-label={isDone ? 'Mark as not done' : 'Mark as done'} disabled={!edit} onClick={tick}
           style={{ flex: 'none', width: 32, height: 32, minHeight: 32, marginTop: 2, borderRadius: '50%', border: '2px solid var(--black, #111)', background: isDone ? 'var(--black, #111)' : 'transparent', color: '#fff', cursor: 'pointer', padding: 0 }}>{isDone ? '✓' : ''}</button>
         <button type="button" className="linklike" style={{ flex: 1, textAlign: 'left', minHeight: 36 }} onClick={onOpen} aria-expanded={open}>
-          <span style={{ textDecoration: isDone ? 'line-through' : undefined, opacity: isDone ? 0.6 : 1 }}>{t.title}</span>
+          <span style={{ textDecoration: isDone ? 'line-through' : undefined, opacity: isDone ? 0.6 : 1 }}>{splitMentions(t.title, labels.team).map((p, i) => (p.tag ? <strong key={i} style={{ color: 'var(--red, #b01e1e)' }}>{p.text}</strong> : <span key={i}>{p.text}</span>))}</span>
           {meta && <><br /><span className="muted small" style={t.due_date && t.due_date < t0 && !isDone ? { color: 'var(--red, #b01e1e)' } : undefined}>{meta}</span></>}
         </button>
       </div>
