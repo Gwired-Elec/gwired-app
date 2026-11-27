@@ -77,7 +77,7 @@ export async function buildQuotePdf(q: QuoteInput): Promise<Uint8Array> {
   const header = () => {
     page.drawRectangle({ x: M, y: y - 5, width: R - M, height: 17, color: ink })
     const top = y
-    y = top - 0.5
+    y = top + 1
     text('Item', xItem + 4, 7.5, bold, white); text('Description of works', xDesc, 7.5, bold, white)
     if (lines) { right('Qty', cQty, 7.5, bold, white); text('Unit', xUnit, 7.5, bold, white); right('Rate', cRate, 7.5, bold, white) }
     right('Total', cTot, 7.5, bold, white)
@@ -154,26 +154,35 @@ export async function buildQuotePdf(q: QuoteInput): Promise<Uint8Array> {
     summary.push([code, s.name, secTotal])
     need(48, true)
     page.drawRectangle({ x: M, y: y - 5, width: R - M, height: 17, color: tint })
+    y += 0.5
     text(code, xItem + 4, 9.5, bold, red)
     text(s.name.toUpperCase(), xDesc, 9.5, bold)
     if (!lines) right(formatGBP(secTotal), cTot, 9.5, bold)
-    y -= 20
+    y -= 20.5
     if (lines) {
       ls.forEach((l, i) => {
         const amount = shownById.get(l.id) ?? 0
         const rate = l.qty > 0 ? roundHalfUp(amount / l.qty) : 0
         const dl = wrap(l.description, font, 8.8, descW)
         const nl = l.notes && l.notes.trim() ? wrap(l.notes, font, 7.5, noteW) : []
-        const rows = Math.max(dl.length, nl.length, 1)
-        need(rows * 11 + 8, true)
-        text(`${code}.${i + 1}`, xItem + 4, 8.5, font, grey)
-        dl.forEach((r, k) => page.drawText(r, { x: xDesc, y: y - k * 11, size: 8.8, font, color: ink }))
-        right(String(l.qty), cQty, 8.8); text(l.unit.slice(0, 7), xUnit, 8.5, font, grey)
-        right(formatGBP(rate), cRate, 8.8); right(formatGBP(amount), cTot, 8.8)
-        nl.forEach((r, k) => page.drawText(r, { x: xNote, y: y - k * 10, size: 7.5, font, color: grey }))
-        y -= rows * 11 + 3
-        page.drawLine({ start: { x: M, y: y + 1 }, end: { x: R, y: y + 1 }, thickness: 0.4, color: rule })
-        y -= 6
+        const DL = 11, NL = 10, PAD = 6
+        const rowH = Math.max(dl.length * DL, nl.length * NL, DL) + PAD * 2
+        need(rowH + 2, true)
+        const top = y + 12 // rows butt up against each other: each starts where the one above ends
+        const rowTop = top
+        // baseline of line k of a block of n lines (height lh, font size sz) centred in the row
+        const base = (n: number, k: number, lh: number, sz: number) => rowTop - (rowH - n * lh) / 2 - lh / 2 - k * lh - sz * 0.35
+        const one = (sz: number) => base(1, 0, DL, sz)
+        const put = (s: string, x: number, yy: number, sz: number, f = font, color = ink) => page.drawText(clean(s), { x, y: yy, size: sz, font: f, color })
+        const putR = (s: string, xr: number, yy: number, sz: number, f = font, color = ink) => page.drawText(clean(s), { x: xr - f.widthOfTextAtSize(clean(s), sz), y: yy, size: sz, font: f, color })
+        put(`${code}.${i + 1}`, xItem + 4, one(8.5), 8.5, font, grey)
+        dl.forEach((r, k) => put(r, xDesc, base(dl.length, k, DL, 8.8), 8.8))
+        putR(String(l.qty), cQty, one(8.8), 8.8); put(l.unit.slice(0, 7), xUnit, one(8.5), 8.5, font, grey)
+        putR(formatGBP(rate), cRate, one(8.8), 8.8); putR(formatGBP(amount), cTot, one(8.8), 8.8)
+        nl.forEach((r, k) => put(r, xNote, base(nl.length, k, NL, 7.5), 7.5, font, grey))
+        const bottom = rowTop - rowH
+        page.drawLine({ start: { x: M, y: bottom }, end: { x: R, y: bottom }, thickness: 0.4, color: rule })
+        y = bottom - 12
       })
       need(18, true)
       text(`Total for ${s.name}`, xDesc, 9, bold); right(formatGBP(secTotal), cTot, 9.5, bold)
