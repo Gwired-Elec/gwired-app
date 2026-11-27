@@ -14,7 +14,8 @@ const today = () => new Date().toISOString().slice(0, 10)
 const PAGE = 100
 
 export function MaterialList() {
-  const { can } = useAuth()
+  const { can, profile } = useAuth()
+  const isOwner = profile?.preset === 'owner'
   const materials = useMaterials()
   const prices = useAllPrices()
   const suppliers = useSuppliers()
@@ -83,7 +84,8 @@ export function MaterialList() {
         const markup = m.markup_pct ?? settings.default_markup_pct
         const cost = best ? costPerUnit(best.price) : null
         return (
-          <Link key={m.id} to={`/more/estimating/materials/${m.id}`} className="card linkcard">
+          <div key={m.id} style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
+          <Link to={`/more/estimating/materials/${m.id}`} className="card linkcard" style={{ flex: 1, minWidth: 0 }}>
             <span className="muted small">{m.code ?? ''}{m.category ? ` · ${m.category}` : ''}</span>
             <strong>{m.description}</strong>
             <span className="muted">
@@ -93,6 +95,15 @@ export function MaterialList() {
               {best && <> · <PriceAge date={best.price.price_date} staleDays={settings.stale_days} /></>}
             </span>
           </Link>
+          {isOwner && (
+            <button type="button" className="btn" aria-label={`Delete ${m.description}`} title="Delete this material" style={{ width: 52, flex: 'none', marginTop: 0, alignSelf: 'center', fontSize: '1.3rem' }}
+              onClick={async () => {
+                if (!confirm('Delete ' + m.description + ' and its supplier prices?')) return
+                const now = new Date().toISOString()
+                await saveBatch([...ps.map((p) => ({ tbl: 'material_prices' as const, id: p.id, patch: { deleted_at: now } })), { tbl: 'materials' as const, id: m.id, patch: { deleted_at: now } }])
+              }}>🗑</button>
+          )}
+          </div>
         )
       })}
       {shown.length > limit && <button className="btn" onClick={() => setLimit(limit + PAGE)}>Show more ({shown.length - limit} left)</button>}
